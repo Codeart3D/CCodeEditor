@@ -132,7 +132,7 @@ namespace CCodeEditor.Control
                 lines[i] = lines[i].Replace("\t", String.Empty);
                 var chars = lines[i].ToCharArray();
                 Paragraph paragraph = new Paragraph();
-
+                
                 if (fstr != null)
                     paragraph.Inlines.Add(new Run(fstr));
 
@@ -141,6 +141,7 @@ namespace CCodeEditor.Control
                     bool sign = false;
                     char c = chars[j];
                     int nj = j + 1;
+
 
                     foreach (var delimiter in Delimiters)
                     {
