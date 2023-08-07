@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.28307.271
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CCodeEditor", "CCodeEditor\CCodeEditor.csproj", "{D9A24DE4-4212-4C93-8A3A-87438BD31EEC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CCodeEditorLib", "CCodeEditorLib\CCodeEditorLib.csproj", "{515C0995-1514-4903-83A9-FE2A045D077D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{D9A24DE4-4212-4C93-8A3A-87438BD31EEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D9A24DE4-4212-4C93-8A3A-87438BD31EEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D9A24DE4-4212-4C93-8A3A-87438BD31EEC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{515C0995-1514-4903-83A9-FE2A045D077D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{515C0995-1514-4903-83A9-FE2A045D077D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{515C0995-1514-4903-83A9-FE2A045D077D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{515C0995-1514-4903-83A9-FE2A045D077D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

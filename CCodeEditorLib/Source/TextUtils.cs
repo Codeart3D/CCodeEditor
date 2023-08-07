@@ -7,7 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 
-namespace CCodeEditor.Source
+namespace CCodeEditorLib.Source
 {
     internal static class TextUtils
     {
@@ -151,6 +151,14 @@ namespace CCodeEditor.Source
             }
 
             return parts;
+        }
+
+        internal static string GetStringBetweenTwoChar(string s, char first, char last)
+        {
+            s = s.Substring(s.IndexOf(first) + 1);
+            s = s.Substring(0, s.IndexOf(last));
+
+            return s;
         }
     }
 }
