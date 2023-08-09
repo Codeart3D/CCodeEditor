@@ -14,22 +14,23 @@ namespace CCodeEditorLib.Source
 {
     public class XMLParser
     {
-        public static List<Control> LoadFromXMLString(string xml)
+        public static string ClassPath;
+        public static List<string> ClassNames;
+
+        public static List<object> LoadFromXMLString(string xml)
         {
             var stringReader = new System.IO.StringReader(xml);
             XmlDocument xmlDoc = new XmlDocument();
-            List<Control> controls = new List<Control>();
+            List<object> controls = new List<object>();
             xmlDoc.Load(stringReader);
 
-            List<string> classes = new List<string>();
-            classes.Add("Rectangle");
             //string name = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name + ".Source";
 
-            foreach (var cls in classes)
+            foreach (var cls in ClassNames)
             {
                 foreach (XmlNode reportNode in xmlDoc.SelectNodes("//" + cls))
                 {
-                    object obj = Activator.CreateInstance(Type.GetType($"Xml.Source.{cls}"));
+                    object obj = Activator.CreateInstance(Type.GetType($"{ClassPath}.{cls}"));
 
                     var properties = obj.GetType().GetProperties();
 

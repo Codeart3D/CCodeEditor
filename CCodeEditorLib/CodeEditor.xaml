@@ -8,11 +8,14 @@
              d:DesignHeight="450" d:DesignWidth="800" Loaded="UserControl_Loaded">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="auto"/>
             <RowDefinition/>
             <RowDefinition Height="auto"/>
         </Grid.RowDefinitions>
 
-        <Grid>
+        <Border Background="#333" Height="1"/>
+
+        <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="35"/>
                 <ColumnDefinition/>
@@ -30,8 +33,9 @@
                 <TextBlock VerticalAlignment="Stretch" TextAlignment="Center" Text="1" FontSize="13" Foreground="#55cccc" Margin="0,5" Name="tbkLineNo"/>
             </Grid>
 
-            <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5"
-                     AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+            <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5" 
+                     AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                 <RichTextBox.Resources>
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0"/>
@@ -63,8 +67,10 @@
             </Popup>
         </Grid>
 
-        <Grid Grid.Row="1" Background="#222" MaxHeight="50">
-            <TextBlock Grid.Row="1" Text="Error(s) : " Foreground="IndianRed" Margin="5" Visibility="Collapsed" Name="tbkError"/>
-        </Grid>
+        <Border Grid.Row="2" Background="#222" BorderThickness="0,1,0,0" BorderBrush="#333">
+                <TextBox Text="Error(s) : " Foreground="IndianRed" Margin="5" Height="40" Visibility="Visible" Name="tbkError" IsReadOnly="True" 
+                         HorizontalAlignment="Left" VerticalAlignment="Top" BorderThickness="0" BorderBrush="Transparent" Background="Transparent" 
+                         HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" TextWrapping="WrapWithOverflow"/>
+        </Border>
     </Grid>
 </UserControl>

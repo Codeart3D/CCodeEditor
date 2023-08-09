@@ -30,9 +30,11 @@ namespace CCodeEditorLib
         private TextPointer EndWord;
         private List<LType> Types = new List<LType>();
         private List<Keyword> Keywords = new List<Keyword>();
+        private string[] Lines;
+        private string CodeText;
         private char[] Delimiters;
         private char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"' };
-        private char[] XmlDelimiters = new char[] { ' ', '\0' };
+        private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
 
         private DispatcherTimer Timer;
         private DispatcherTimer XmlTimer = null;
@@ -42,6 +44,10 @@ namespace CCodeEditorLib
         public string Error { get { return tbkError.Text; } set { tbkError.Text = value; } }
         public bool CheckXmlError { get; set; }
         public bool IsEnableXmlFormatter { get; set; }
+
+        // Event
+        public delegate void XMLChangedHandler(object sender, string Xml);
+        public event XMLChangedHandler XmlChanged;
 
         public CodeEditor()
         {
@@ -55,21 +61,20 @@ namespace CCodeEditorLib
                 if (IsEnableXmlFormatter)
                 {
                     XmlTimer = new DispatcherTimer();
-                    XmlTimer.Interval = new TimeSpan(0, 0, 3);
+                    XmlTimer.Interval = new TimeSpan(0, 0, 10);
                     XmlTimer.Tick += XmlTimer_Tick;
                 }
 
                 Delimiters = XmlDelimiters;
 
-                Keywords.Add(new Keyword(Brushes.LightGreen, "<", KeywordType.XMLTag, false));
-                Keywords.Add(new Keyword(Brushes.LightGreen, "/>", KeywordType.XMLTag, false));
-                Keywords.Add(new Keyword(Brushes.LightGreen, ">", KeywordType.XMLTag, false));
-                Keywords.Add(new Keyword(Brushes.LightGreen, "<Screen>", KeywordType.XMLTag));
-                Keywords.Add(new Keyword(Brushes.LightGreen, "</Screen>", KeywordType.XMLTag));
-                Keywords.Add(new Keyword(Brushes.LightGreen, "<Screen", KeywordType.XMLTag, false));
-                Keywords.Add(new Keyword(Brushes.LightGreen, "<Rectangle/>", KeywordType.XMLTag));
-                Keywords.Add(new Keyword(Brushes.LightGreen, "<Rectangle>", KeywordType.XMLTag));
-                Keywords.Add(new Keyword(Brushes.LightGreen, "<Rectangle", KeywordType.XMLTag, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "<", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "/>", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, ">", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "=", KeywordType.XMLTag, "=\"\"", false, 1));
+
+                //var att = new List<string>();
+                //att.Add("x");
+                //SetXmlAttrib(att);
             }
             else
             {
@@ -107,12 +112,36 @@ namespace CCodeEditorLib
             bool res = syntax.Check("SetValue(10);");
 
             Timer = new DispatcherTimer();
-            Timer.Interval = new TimeSpan(0, 0, 0, 0, 100);
+            Timer.Interval = new TimeSpan(0, 0, 0, 0, 200);
             Timer.Tick += Timer_Tick;
 
             lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
 
             tbxCode.Focus();
+        }
+
+        public void SetXmlRoot(string root)
+        {
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{root}>", KeywordType.XMLTag));
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{root}>", KeywordType.XMLTag));
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{root}", KeywordType.XMLTag, null, false));
+        }
+
+        public void SetXmlClasses(List<string> classes)
+        {
+            foreach (var item in classes)
+            {
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item} />", KeywordType.XMLTag, null, true, 2));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item}>", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{item}>", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item}", KeywordType.XMLTag, null, false));
+            }
+        }
+
+        public void SetXmlAttrib(List<string> attribs)
+        {
+            foreach (var item in attribs)
+                Keywords.Add(new Keyword(Brushes.LightGreen, item, KeywordType.XMLAttrib, $"{item}=\"\"", true, 1));
         }
 
         private void XmlTimer_Tick(object sender, EventArgs e)
@@ -122,8 +151,10 @@ namespace CCodeEditorLib
                 Timer.Stop();
                 XmlTimer.Stop();
                 Editing = true;
-                string xml = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).Text;
-                TextChecking(Source.XMLParser.FormatXml(xml));
+
+                CodeText = Source.XMLParser.FormatXml(CodeText);
+                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                TextChecking();
                 Editing = false;
             }
             catch { }
@@ -134,22 +165,21 @@ namespace CCodeEditorLib
             Editing = true;
             Timer.Stop();
 
-            TextRange textRange = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd);
-
             if (IsXML && CheckXmlError)
-                XmlErrorChecking(textRange.Text);
+                XmlErrorChecking();
 
-            TextChecking(textRange.Text);
+            TextChecking();
 
             Editing = false;
         }
 
-        private void XmlErrorChecking(string xml)
+        private void XmlErrorChecking()
         {
             try
             {
-                var result = Source.XMLParser.LoadFromXMLString(xml);
-                tbkError.Text = null;
+                //Source.XMLParser.LoadFromXMLString(xml);
+                XmlChanged?.Invoke(this, CodeText);
+                //tbkError.Text = null;
             }
             catch (Exception ex)
             {
@@ -157,28 +187,28 @@ namespace CCodeEditorLib
             }
         }
 
-        private void TextChecking(string text)
+        private void TextChecking()
         {
-            string[] lines = text.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-
-            if (string.IsNullOrEmpty(lines.Last()))
-            {
-                SetLineNumber(lines.Length);
-                CheckKeyword(lines, lines.Length - 1);
-            }
+            if (string.IsNullOrEmpty(Lines.Last()))
+                CheckKeyword(Lines.Length - 1);
             else
-            {
-                SetLineNumber(lines.Length + 1);
-                CheckKeyword(lines, lines.Length);
-            }
+                CheckKeyword(Lines.Length);
 
-            string code = Compile(lines);
+            //string code = Compile();
         }
 
         private void tbxCode_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (!Editing)
             {
+                CodeText = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).Text;
+                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+
+                if (string.IsNullOrEmpty(Lines.Last()))
+                    SetLineNumber(Lines.Length);
+                else
+                    SetLineNumber(Lines.Length + 1);
+
                 Timer.Stop();
                 Timer.Start();
 
@@ -280,7 +310,7 @@ namespace CCodeEditorLib
             tbkLineNo.Text = lineno;
         }
 
-        private void CheckKeyword(string[] lines, int lcount)
+        private void CheckKeyword(int lcount)
         {
             bool collect_comment_star = false;
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
@@ -294,8 +324,8 @@ namespace CCodeEditorLib
                 bool collect_string = false;
                 bool collect_comment_slash = false;
                 char[] word = new char[1024];
-                lines[i] = lines[i].Replace("\t", String.Empty);
-                var chars = lines[i].ToCharArray();
+                Lines[i] = Lines[i].Replace("\t", String.Empty);
+                var chars = Lines[i].ToCharArray();
                 Paragraph paragraph = new Paragraph();
 
                 for (int j = 0; j < chars.Length; j++)
@@ -469,19 +499,19 @@ namespace CCodeEditorLib
             tbxCode.CaretPosition = tbxCode.GetPositionFromPoint(point, true);
         }
 
-        public string Compile(string[] lines)
+        public string Compile()
         {
             string code = "";
             bool collect_comment_star = false;
 
-            for (int i = 0; i < lines.Length - 1; i++)
+            for (int i = 0; i < Lines.Length - 1; i++)
             {
                 int k = 0;
                 bool collect_string = false;
                 bool collect_comment_slash = false;
                 char[] word = new char[1024];
-                lines[i] = lines[i].Replace("\t", String.Empty);
-                var chars = lines[i].ToCharArray();
+                Lines[i] = Lines[i].Replace("\t", String.Empty);
+                var chars = Lines[i].ToCharArray();
 
                 for (int j = 0; j < chars.Length; j++)
                 {
@@ -665,7 +695,31 @@ namespace CCodeEditorLib
 
         private void tbxCode_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key != Key.Space)
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                if (e.Key == Key.Space)
+                {
+                    DisplaySuggestionPopup();
+                    return;
+                }
+                else if (e.Key == Key.Enter)
+                    TextUtils.InsertEmptyLine(tbxCode);
+                else if (e.Key == Key.D)
+                    TextUtils.CopyCurrentLine(tbxCode);
+                else if (e.Key == Key.Z)
+                    tbxCode.Undo();
+                else if (e.Key == Key.Y)
+                    tbxCode.Redo();
+
+                popSuggestion.IsOpen = false;
+                lstKeyword.Items.Filter = null;
+            }
+            else if (Keyboard.Modifiers == ModifierKeys.Shift)
+            {
+                if (e.Key == Key.Delete)
+                    TextUtils.DeleteCurrentLine(tbxCode);
+            }
+            else
             {
                 if (e.Key == Key.Up)
                 {
@@ -737,9 +791,11 @@ namespace CCodeEditorLib
                             popSuggestion.IsOpen = false;
                     }
 
-                    if (!IsXML)
-                        lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().StartsWith(FilterWord); };
-                    else
+                    //if (!IsXML)
+                    //else
+                    lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().StartsWith(FilterWord); };
+
+                    if (lstKeyword.Items.Count == 0)
                         lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().Contains(FilterWord); };
 
                     if (lstKeyword.Items.Count > 0)
@@ -747,16 +803,6 @@ namespace CCodeEditorLib
                     else
                         // filtered list is empty
                         popSuggestion.IsOpen = false;
-                }
-            }
-            else
-            {
-                if (Keyboard.Modifiers == ModifierKeys.Control)
-                    DisplaySuggestionPopup();
-                else
-                {
-                    popSuggestion.IsOpen = false;
-                    lstKeyword.Items.Filter = null;
                 }
             }
         }
@@ -773,7 +819,16 @@ namespace CCodeEditorLib
                     textRange.Text = textRange.Text = "";
 
                     tbxCode.CaretPosition = tbxCode.CaretPosition.GetPositionAtOffset(0, LogicalDirection.Forward);
-                    tbxCode.CaretPosition.InsertTextInRun((lstKeyword.SelectedItem as Keyword).Key);
+
+                    Keyword keyword = lstKeyword.SelectedItem as Keyword;
+
+                    if (keyword.ReplaceKey == null)
+                        tbxCode.CaretPosition.InsertTextInRun(keyword.Key);
+                    else
+                        tbxCode.CaretPosition.InsertTextInRun(keyword.ReplaceKey);
+
+                    for (int i = 0; i < keyword.ReturnBackward; i++)
+                        tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Backward);
                 }
 
                 popSuggestion.IsOpen = false;

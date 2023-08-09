@@ -14,23 +14,28 @@ namespace CCodeEditorLib.Source
         Struct,
         Class,
         Method,
-        XMLTag
+        XMLTag,
+        XMLAttrib
     }
 
     public class Keyword
     {
         public bool Visible { get; set; }
         public string Key { get; set; }
+        public string ReplaceKey { get; set; }
         public Brush Color { get; set; }
         public KeywordType Type { get; set; }
+        public int ReturnBackward { get; set; }
         public List<string> Suggestions { get; set; }
 
-        public Keyword(Brush color, string key, KeywordType type = KeywordType.Main, bool visible = true)
+        public Keyword(Brush color, string key, KeywordType type = KeywordType.Main, string replace = null, bool visible = true, int returnback = 0)
         {
             Key = key;
             Color = color;
             Type = type;
             Visible = visible;
+            ReplaceKey = replace;
+            ReturnBackward = returnback;
         }
     }
 }

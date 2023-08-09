@@ -103,6 +103,43 @@ namespace CCodeEditorLib.Source
             range.Text = replace;
         }
 
+        public static string GetLineText(RichTextBox rtb)
+        {
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+            TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
+
+            return new TextRange(start, end).Text;
+        }
+
+        public static void CopyCurrentLine(RichTextBox rtb)
+        {
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+            TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
+            TextRange range = new TextRange(start, end);
+            range.Text += range.Text;
+            rtb.CaretPosition = range.End.GetNextInsertionPosition(LogicalDirection.Backward);
+        }
+
+        public static void DeleteCurrentLine(RichTextBox rtb)
+        {
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+            TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
+            TextRange range = new TextRange(start, end);
+            range.Text = "";
+            rtb.CaretPosition = start.GetPositionAtOffset(-2, LogicalDirection.Forward);
+        }
+
+        public static void InsertEmptyLine(RichTextBox rtb)
+        {
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+            start.InsertLineBreak();
+            rtb.CaretPosition = start.GetPositionAtOffset(-2, LogicalDirection.Forward);
+        }
+
         private static int CheckText(string s1, string s2, ref int idx1, ref int idx2)
         {
             for (; idx1 < s1.Length; idx1++)
