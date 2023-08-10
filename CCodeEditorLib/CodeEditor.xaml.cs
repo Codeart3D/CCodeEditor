@@ -25,6 +25,7 @@ namespace CCodeEditorLib
     public partial class CodeEditor : UserControl
     {
         private bool Editing = false;
+        private bool UndoAction = false;
         private string FilterWord = "";
         private TextPointer StartWord;
         private TextPointer EndWord;
@@ -35,6 +36,9 @@ namespace CCodeEditorLib
         private char[] Delimiters;
         private char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"' };
         private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
+
+        private Stack<string> UndoStack = new Stack<string>();
+        private Stack<string> RedoStack = new Stack<string>();
 
         private DispatcherTimer Timer;
         private DispatcherTimer XmlTimer = null;
@@ -73,8 +77,8 @@ namespace CCodeEditorLib
                 Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "=", KeywordType.XMLTag, "=\"\"", false, 1));
 
                 //var att = new List<string>();
-                //att.Add("x");
-                //SetXmlAttrib(att);
+                //att.Add("Image");
+                //SetXmlClasses(att);
             }
             else
             {
@@ -201,8 +205,12 @@ namespace CCodeEditorLib
         {
             if (!Editing)
             {
+                UndoAction = false;
                 CodeText = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).Text;
                 Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+
+                if (!string.IsNullOrEmpty(CodeText))
+                    UndoStack.Push(CodeText);
 
                 if (string.IsNullOrEmpty(Lines.Last()))
                     SetLineNumber(Lines.Length);
@@ -695,7 +703,12 @@ namespace CCodeEditorLib
 
         private void tbxCode_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (Keyboard.Modifiers == ModifierKeys.Control)
+            if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+            {
+                if (e.Key == Key.Z)
+                    Redo();
+            }
+            else if (Keyboard.Modifiers == ModifierKeys.Control)
             {
                 if (e.Key == Key.Space)
                 {
@@ -707,9 +720,9 @@ namespace CCodeEditorLib
                 else if (e.Key == Key.D)
                     TextUtils.CopyCurrentLine(tbxCode);
                 else if (e.Key == Key.Z)
-                    tbxCode.Undo();
+                    Undo();
                 else if (e.Key == Key.Y)
-                    tbxCode.Redo();
+                    Redo();
 
                 popSuggestion.IsOpen = false;
                 lstKeyword.Items.Filter = null;
@@ -841,6 +854,47 @@ namespace CCodeEditorLib
         private void GriKeyItem_MouseDown(object sender, MouseButtonEventArgs e)
         {
             SelectSuggestion();
+        }
+
+        private void Undo()
+        {
+            if (UndoStack.Count > 0)
+            {
+                Editing = true;
+                CodeText = UndoStack.Pop();
+                RedoStack.Push(CodeText);
+
+                // pop again when undo action is false
+                if (!UndoAction && UndoStack.Count > 0)
+                {
+                    CodeText = UndoStack.Pop();
+                    RedoStack.Push(CodeText);
+                }
+
+                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                TextChecking();
+                Editing = false;
+                XmlChanged?.Invoke(this, CodeText);
+            }
+            else
+                tbxCode.Document.Blocks.Clear();
+
+            UndoAction = true;
+        }
+
+        private void Redo()
+        {
+            if (RedoStack.Count > 0)
+            {
+                Editing = true;
+                UndoAction = false;
+                CodeText = RedoStack.Pop();
+                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                UndoStack.Push(CodeText);
+                TextChecking();
+                Editing = false;
+                XmlChanged?.Invoke(this, CodeText);
+            }
         }
     }
 }

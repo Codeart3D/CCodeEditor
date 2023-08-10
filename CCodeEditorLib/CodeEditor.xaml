@@ -35,7 +35,7 @@
 
             <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5" 
                      AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown"
-                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsUndoEnabled="False">
                 <RichTextBox.Resources>
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0"/>
