@@ -35,7 +35,7 @@
 
             <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5" 
                      AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown"
-                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsUndoEnabled="False">
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsUndoEnabled="False" SelectionChanged="TbxCode_SelectionChanged">
                 <RichTextBox.Resources>
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0"/>
@@ -48,7 +48,7 @@
             </RichTextBox>
 
             <Popup Grid.Column="1" Width="150" Height="auto" MaxHeight="200" MinHeight="50" StaysOpen="False" IsOpen="False" Name="popSuggestion" Placement="AbsolutePoint">
-                <ListBox Background="#222" BorderThickness="1" BorderBrush="#111" Name="lstKeyword" HorizontalContentAlignment="Stretch">
+                <ListBox Background="#222" BorderThickness="1" BorderBrush="#111" Name="lstKeyword" HorizontalContentAlignment="Stretch" SelectionChanged="LstKeyword_SelectionChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid Background="#222" Name="griKeyItem" MouseDown="GriKeyItem_MouseDown">
@@ -58,7 +58,7 @@
                                     <ColumnDefinition/>
                                 </Grid.ColumnDefinitions>
 
-                                <!--<Image Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" Source="../Image/Error.png" IsHitTestVisible="False"/>-->
+                                <Image Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" Source="{Binding Icon}" IsHitTestVisible="False"/>
                                 <TextBlock Grid.Column="2" Text="{Binding Key}" Foreground="WhiteSmoke" IsHitTestVisible="False"/>
                             </Grid>
                         </DataTemplate>

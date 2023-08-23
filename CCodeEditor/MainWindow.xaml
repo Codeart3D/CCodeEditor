@@ -9,6 +9,6 @@
         Title="CCodeEditor" Height="450" Width="800">
     
     <Grid>
-        <ctrl:CodeEditor DisplayErrorSection="Visible" IsXML="True" Error="" IsEnableXmlFormatter="True" CheckXmlError="True"/>
+        <ctrl:CodeEditor DisplayErrorSection="Visible" IsXML="False" Error="" IsEnableXmlFormatter="False" CheckXmlError="False"/>
     </Grid>
 </Window>

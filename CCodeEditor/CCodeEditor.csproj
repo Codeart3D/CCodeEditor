@@ -94,13 +94,16 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Image\Error.png" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\CCodeEditorLib\CCodeEditorLib.csproj">
       <Project>{515c0995-1514-4903-83a9-fe2a045d077d}</Project>
       <Name>CCodeEditorLib</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Image\Items.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Image\Attrib.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

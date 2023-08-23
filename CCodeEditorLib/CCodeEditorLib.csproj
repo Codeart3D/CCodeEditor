@@ -65,6 +65,7 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <Compile Include="Source\Keyword.cs" />
+    <Compile Include="Source\KeywordClass.cs" />
     <Compile Include="Source\LType.cs" />
     <Compile Include="Source\Syntax.cs" />
     <Compile Include="Source\TextUtils.cs" />

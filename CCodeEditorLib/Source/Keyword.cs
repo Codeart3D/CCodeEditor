@@ -21,12 +21,34 @@ namespace CCodeEditorLib.Source
     public class Keyword
     {
         public bool Visible { get; set; }
+        public string KeyName { get; set; }
         public string Key { get; set; }
         public string ReplaceKey { get; set; }
         public Brush Color { get; set; }
         public KeywordType Type { get; set; }
         public int ReturnBackward { get; set; }
-        public List<string> Suggestions { get; set; }
+        public List<Keyword> BaseSuggestions { get; set; }
+        public List<Keyword> Suggestions { get; set; }
+        public string Icon
+        {
+            get
+            {
+                switch (Type)
+                {
+                    case KeywordType.Main:
+                    case KeywordType.Enum:
+                    case KeywordType.Struct:
+                    case KeywordType.Class:
+                    case KeywordType.Method:
+                    case KeywordType.XMLTag:
+                        return "../Image/Items.png";
+                    case KeywordType.XMLAttrib:
+                        return "../Image/Attrib.png";
+                }
+
+                return "../Image/Items.png";
+            }
+        }
 
         public Keyword(Brush color, string key, KeywordType type = KeywordType.Main, string replace = null, bool visible = true, int returnback = 0)
         {

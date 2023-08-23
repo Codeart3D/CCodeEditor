@@ -27,10 +27,13 @@ namespace CCodeEditorLib
         private bool Editing = false;
         private bool UndoAction = false;
         private string FilterWord = "";
+        private Keyword CurrentKeyword;
         private TextPointer StartWord;
         private TextPointer EndWord;
+        private List<Keyword> AttribList;
         private List<LType> Types = new List<LType>();
         private List<Keyword> Keywords = new List<Keyword>();
+        private string CurrentTag = null;
         private string[] Lines;
         private string CodeText;
         private char[] Delimiters;
@@ -76,9 +79,36 @@ namespace CCodeEditorLib
                 Keywords.Add(new Keyword(Brushes.PaleGoldenrod, ">", KeywordType.XMLTag, null, false));
                 Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "=", KeywordType.XMLTag, "=\"\"", false, 1));
 
-                //var att = new List<string>();
-                //att.Add("Image");
-                //SetXmlClasses(att);
+
+
+                List<string> basep = new List<string>();
+                basep.Add("X");
+                basep.Add("Y");
+                basep.Add("Width");
+                basep.Add("Height");
+
+                List<string> pi = new List<string>();
+                pi.Add("Color");
+                pi.Add("Texture");
+
+                List<string> ps = new List<string>();
+                ps.Add("Play");
+                ps.Add("Volume");
+
+                List<string> pp = new List<string>();
+                pp.Add("Background");
+                pp.Add("Foreground");
+
+                var basepa = GetXmlAttrib(basep);
+                var pia = GetXmlAttrib(pi);
+                var psa = GetXmlAttrib(ps);
+                var ppa = GetXmlAttrib(pp);
+
+                var att = new List<KeywordClass>();
+                att.Add(new KeywordClass("Image", pia, basepa));
+                att.Add(new KeywordClass("Sound", psa, basepa));
+                att.Add(new KeywordClass("Progressbar", ppa, basepa));
+                SetXmlClasses(att);
             }
             else
             {
@@ -124,28 +154,32 @@ namespace CCodeEditorLib
             tbxCode.Focus();
         }
 
-        public void SetXmlRoot(string root)
+        public void SetXmlRoot(KeywordClass root)
         {
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{root}>", KeywordType.XMLTag));
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{root}>", KeywordType.XMLTag));
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{root}", KeywordType.XMLTag, null, false));
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{root.Name}>", KeywordType.XMLTag) { KeyName = root.Name, Suggestions = root.Properties, BaseSuggestions = root.BaseProperties });
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{root.Name}>", KeywordType.XMLTag));
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{root.Name}", KeywordType.XMLTag, null, false));
         }
 
-        public void SetXmlClasses(List<string> classes)
+        public void SetXmlClasses(List<KeywordClass> classes)
         {
             foreach (var item in classes)
             {
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item} />", KeywordType.XMLTag, null, true, 2));
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item}>", KeywordType.XMLTag, null, false));
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{item}>", KeywordType.XMLTag, null, false));
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item}", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name} />", KeywordType.XMLTag, null, true, 2) { KeyName = item.Name, Suggestions = item.Properties, BaseSuggestions = item.BaseProperties });
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name}>", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{item.Name}>", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name}", KeywordType.XMLTag, null, false));
             }
         }
 
-        public void SetXmlAttrib(List<string> attribs)
+        public List<Keyword> GetXmlAttrib(List<string> attribs)
         {
+            List<Keyword> atts = new List<Keyword>();
+
             foreach (var item in attribs)
-                Keywords.Add(new Keyword(Brushes.LightGreen, item, KeywordType.XMLAttrib, $"{item}=\"\"", true, 1));
+                atts.Add(new Keyword(Brushes.LightGreen, item, KeywordType.XMLAttrib, $"{item}=\"\"", true, 1));
+
+            return atts;
         }
 
         private void XmlTimer_Tick(object sender, EventArgs e)
@@ -154,12 +188,7 @@ namespace CCodeEditorLib
             {
                 Timer.Stop();
                 XmlTimer.Stop();
-                Editing = true;
-
-                CodeText = Source.XMLParser.FormatXml(CodeText);
-                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-                TextChecking();
-                Editing = false;
+                XmlFormat();
             }
             catch { }
         }
@@ -220,7 +249,7 @@ namespace CCodeEditorLib
                 Timer.Stop();
                 Timer.Start();
 
-                if (IsEnableXmlFormatter)
+                if (IsXML && IsEnableXmlFormatter)
                 {
                     XmlTimer.Stop();
                     XmlTimer.Start();
@@ -335,6 +364,14 @@ namespace CCodeEditorLib
                 Lines[i] = Lines[i].Replace("\t", String.Empty);
                 var chars = Lines[i].ToCharArray();
                 Paragraph paragraph = new Paragraph();
+
+                if (IsXML)
+                {
+                    string tag = TextUtils.FindCurrentXmlTag(Lines[i]);
+
+                    if (tag != null)
+                        CurrentKeyword = Keywords.Where(p => p.KeyName == tag).FirstOrDefault();
+                }
 
                 for (int j = 0; j < chars.Length; j++)
                 {
@@ -692,7 +729,28 @@ namespace CCodeEditorLib
                 if (key != null)
                     run.Foreground = key.Color;
                 else
-                    run.Foreground = Brushes.LightGray;
+                {
+                    if (CurrentKeyword != null)
+                    {
+                        key = CurrentKeyword.BaseSuggestions.Where(p => p.Key == part).FirstOrDefault();
+
+                        if (key != null)
+                            run.Foreground = key.Color;
+                        else
+                        {
+                            key = CurrentKeyword.Suggestions.Where(p => p.Key == part).FirstOrDefault();
+
+                            if (key != null)
+                                run.Foreground = key.Color;
+                            else
+                            {
+                                run.Foreground = Brushes.LightGray;
+                            }
+                        }
+                    }
+                    else
+                        run.Foreground = Brushes.LightGray;
+                }
 
                 paragraph.Inlines.Add(run);
             }
@@ -715,6 +773,13 @@ namespace CCodeEditorLib
                     DisplaySuggestionPopup();
                     return;
                 }
+                if (e.Key == Key.K)
+                {
+                    if (IsXML)
+                        XmlFormat();
+                    else
+                        Format();
+                }
                 else if (e.Key == Key.Enter)
                     TextUtils.InsertEmptyLine(tbxCode);
                 else if (e.Key == Key.D)
@@ -731,6 +796,8 @@ namespace CCodeEditorLib
             {
                 if (e.Key == Key.Delete)
                     TextUtils.DeleteCurrentLine(tbxCode);
+                else
+                    CaptureInput(e.Key);
             }
             else
             {
@@ -755,90 +822,93 @@ namespace CCodeEditorLib
                     }
                 }
                 else if (e.Key == Key.Enter)
-                {
                     e.Handled = SelectSuggestion();
-                }
                 else if (e.Key == Key.Right || e.Key == Key.Left || e.Key == Key.Escape)
-                {
                     popSuggestion.IsOpen = false;
-                }
                 else
+                    CaptureInput(e.Key);
+            }
+        }
+
+        private void CaptureInput(Key key)
+        {
+            string inputchar = null;
+
+            if (!IsXML)
+            {
+                if (key >= Key.A && key <= Key.Z)
                 {
-                    string inputchar = null;
-
-                    if (!IsXML)
-                    {
-                        if (e.Key >= Key.A && e.Key <= Key.Z)
-                        {
-                            inputchar = e.Key.ToString().ToLower();
-                            DisplaySuggestionPopup();
-                        }
-                    }
-                    else
-                    {
-                        if (e.Key >= Key.A && e.Key <= Key.Z)
-                        {
-                            inputchar = e.Key.ToString().ToLower();
-                            DisplaySuggestionPopup();
-                        }
-                        else if (e.Key == Key.OemComma && Keyboard.Modifiers == ModifierKeys.Shift)
-                        {
-                            inputchar = "<";
-                            DisplaySuggestionPopup();
-                        }
-                        else if (e.Key == Key.Oem2)
-                        {
-                            inputchar = "/";
-                            DisplaySuggestionPopup();
-                        }
-                    }
-
-                    FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
-
-                    if (e.Key == Key.Back)
-                    {
-                        if (FilterWord.Length > 0)
-                            FilterWord = FilterWord.Remove(FilterWord.Length - 1);
-
-                        if (string.IsNullOrEmpty(FilterWord))
-                            popSuggestion.IsOpen = false;
-                    }
-
-                    //if (!IsXML)
-                    //else
-                    lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().StartsWith(FilterWord); };
-
-                    if (lstKeyword.Items.Count == 0)
-                        lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().Contains(FilterWord); };
-
-                    if (lstKeyword.Items.Count > 0)
-                        lstKeyword.SelectedIndex = 0;
-                    else
-                        // filtered list is empty
-                        popSuggestion.IsOpen = false;
+                    inputchar = key.ToString().ToLower();
+                    DisplaySuggestionPopup();
                 }
             }
+            else
+            {
+                if (key >= Key.A && key <= Key.Z)
+                {
+                    inputchar = key.ToString().ToLower();
+                    DisplaySuggestionPopup();
+                }
+                else if (key == Key.OemComma && Keyboard.Modifiers == ModifierKeys.Shift)
+                {
+                    inputchar = "<";
+                    DisplaySuggestionPopup();
+                }
+                else if (key == Key.Oem2)
+                {
+                    inputchar = "/";
+                    DisplaySuggestionPopup();
+                }
+            }
+
+            FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
+
+            if (key == Key.Back)
+            {
+                if (FilterWord.Length > 0)
+                    FilterWord = FilterWord.Remove(FilterWord.Length - 1);
+
+                if (string.IsNullOrEmpty(FilterWord))
+                    popSuggestion.IsOpen = false;
+            }
+
+            //if (!IsXML)
+            //else
+            lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().StartsWith(FilterWord); };
+
+            if (lstKeyword.Items.Count == 0)
+                lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().Contains(FilterWord); };
+
+            if (lstKeyword.Items.Count > 0)
+                lstKeyword.SelectedIndex = 0;
+            else
+                // filtered list is empty
+                popSuggestion.IsOpen = false;
         }
 
         private bool SelectSuggestion()
         {
             if (popSuggestion.IsOpen)
             {
-                if (lstKeyword.SelectedItem != null)
+                Keyword keyword = lstKeyword.SelectedItem as Keyword;
+
+                if (keyword != null)
                 {
                     FindBeginOfWord();
                     FindEndOfWord();
                     TextRange textRange = new TextRange(StartWord, EndWord);
-                    textRange.Text = textRange.Text = "";
+                    textRange.Text = "";
 
                     tbxCode.CaretPosition = tbxCode.CaretPosition.GetPositionAtOffset(0, LogicalDirection.Forward);
 
-                    Keyword keyword = lstKeyword.SelectedItem as Keyword;
+                    string sugg = "";
+                    string prec = TextUtils.GetPreCharacter(tbxCode)?.Trim();
 
-                    if (keyword.ReplaceKey == null)
-                        tbxCode.CaretPosition.InsertTextInRun(keyword.Key);
-                    else
-                        tbxCode.CaretPosition.InsertTextInRun(keyword.ReplaceKey);
+                    if (!string.IsNullOrEmpty(prec))
+                        sugg = " ";
+
+                    sugg += keyword.ReplaceKey == null ? keyword.Key : keyword.ReplaceKey;
+                    tbxCode.CaretPosition.InsertTextInRun(sugg);
 
                     for (int i = 0; i < keyword.ReturnBackward; i++)
                         tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Backward);
@@ -895,6 +965,362 @@ namespace CCodeEditorLib
                 Editing = false;
                 XmlChanged?.Invoke(this, CodeText);
             }
+        }
+
+        private void FindCurrentTag()
+        {
+            string tag = TextUtils.FindCurrentXmlTag(tbxCode);
+
+            if (tag != null)
+            {
+                if (tag != CurrentTag)
+                {
+                    CurrentTag = tag;
+                    Keyword key = Keywords.Where(p => p.KeyName == tag).FirstOrDefault();
+
+                    if (key != null)
+                    {
+                        lstKeyword.Items.Filter = null;
+                        AttribList = new List<Keyword>();
+                        AttribList.AddRange(key.Suggestions);
+
+                        if (key.BaseSuggestions != null)
+                            AttribList.AddRange(key.BaseSuggestions);
+
+                        lstKeyword.ItemsSource = null;
+                        lstKeyword.ItemsSource = AttribList;
+                    }
+                }
+            }
+            else
+            {
+                CurrentTag = null;
+                lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
+            }
+        }
+
+        private void TbxCode_SelectionChanged(object sender, RoutedEventArgs e)
+        {
+            FindCurrentTag();
+        }
+
+        private void LstKeyword_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (lstKeyword.SelectedItem != null)
+                lstKeyword.ScrollIntoView(lstKeyword.SelectedItem);
+        }
+
+        private void XmlFormat()
+        {
+            Editing = true;
+            CodeText = Source.XMLParser.FormatXml(CodeText);
+            Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            TextChecking();
+            Editing = false;
+        }
+
+        private void Format()
+        {
+            Editing = true;
+            int startcolumn = 0;
+            TextRange range = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd);
+            string code = range.Text;
+            string preword = null;
+            char[] word = new char[512];
+            char[] ncode = new char[code.Length + 10000];
+            int j = 0;
+            int k = 0;
+            int last = code.Length - 1;
+            char precs = '\0'; // pre character without space
+
+            int parantes_no = 0;
+            bool keyword_seen = false;
+            bool collect_string = false;
+            bool collect_comment = false;
+            bool collect_comment_star = false;
+
+            for (int i = 0; i < code.Length; i++)
+            {
+                int pre = i - 1;
+                int nex = i + 1;
+
+                char curc = code[i];
+                char prec = '\0'; // prev character with space 
+                char nexc = '\0'; // next character with space
+
+                if (pre > -1)
+                    prec = code[pre];
+
+                if (nex < code.Length)
+                    nexc = code[nex];
+
+
+                if (collect_string)
+                {
+                    if (curc == '\"')
+                        collect_string = false;
+
+                    ncode[j++] = curc;
+
+                    continue;
+                }
+                else if (collect_comment)
+                {
+                    if (curc == '\r' || curc == '\n' || curc == '\0')
+                        collect_comment = false;
+
+                    ncode[j++] = curc;
+
+                    continue;
+                }
+                else if (collect_comment_star)
+                {
+                    if (curc == '*' && nexc == '/')
+                        collect_comment_star = false;
+
+                    ncode[j++] = curc;
+
+                    continue;
+                }
+
+
+                // remove more than one space
+                char nextcs = SkipForward(ref code, ' ', ref i, last); // next character without space
+
+                if (curc == ';')
+                {
+                    SetPreWord(ref preword, ref word, ref k);
+                    // go to new line after ; character
+                    ncode[j++] = curc;
+
+                    // go to next line, commented for 'for' keyword
+                    //if (nextcs != '\r')
+                    //    ncode[j++] = '\n';
+
+                    precs = ncode[j - 1];
+                }
+                else if (curc == '{')
+                {
+                    parantes_no = 0;
+                    keyword_seen = false;
+                    SetPreWord(ref preword, ref word, ref k);
+                    // go to new line after and before { character
+                    // set start column gap
+                    InsertGap(ncode, ref j, startcolumn);
+                    startcolumn++;
+
+                    if (precs != '\n')
+                        ncode[j++] = '\n';
+
+                    ncode[j++] = '{';
+
+                    if (nextcs != '\r')
+                        ncode[j++] = '\n';
+
+                    precs = ncode[j - 1];
+                }
+                else if (curc == '}')
+                {
+                    SetPreWord(ref preword, ref word, ref k);
+                    // go to new line after and before } character
+                    // set start column gap
+                    startcolumn--;
+                    InsertGap(ncode, ref j, startcolumn);
+
+                    if (precs != '\n')
+                        ncode[j++] = '\n';
+
+                    ncode[j++] = '}';
+
+                    if (nextcs != '\r')
+                        ncode[j++] = '\n';
+
+                    precs = ncode[j - 1];
+                }
+                else if (curc == '\r')
+                {
+                    SetPreWord(ref preword, ref word, ref k);
+                    precs = '\n';
+                    ncode[j++] = '\n';
+                    // insert gap in begin of line
+                }
+                else if (curc == ' ')
+                {
+                    SetPreWord(ref preword, ref word, ref k);
+
+                    // remove space before ; character
+                    if (nextcs != ';')
+                        ncode[j++] = curc;
+                }
+                else if (curc == '\"')
+                {
+                    collect_string = true;
+                    ncode[j++] = '\"';
+                }
+                else if (curc == '/' && nexc == '/')
+                {
+                    collect_comment = true;
+                    ncode[j++] = '/';
+                    ncode[j++] = '/';
+                    i++;
+                }
+                else if (curc == '/' && nexc == '*')
+                {
+                    collect_comment = true;
+                    ncode[j++] = '/';
+                    ncode[j++] = '*';
+                    i++;
+                }
+                else
+                {
+                    if (curc != '\n')
+                    {
+                        // collect word
+                        if (CheckLetterNumber(curc))
+                            word[k++] = curc;
+                        else
+                            SetPreWord(ref preword, ref word, ref k);
+
+                        // check main keywords
+                        if (curc == '(')
+                        {
+                            if (CheckMainKeyword(ref preword))
+                            {
+                                if (prec != ' ')
+                                    ncode[j++] = ' ';
+                            }
+
+                            parantes_no++;
+                            keyword_seen = true;
+                        }
+                        else if (curc == ')')
+                        {
+                            parantes_no--;
+
+                            if (parantes_no == 0 && !CheckEndLine(nextcs))
+                            {
+                                keyword_seen = false;
+
+                                if (nexc != ' ')
+                                {
+                                    ncode[j++] = ')';
+                                    ncode[j++] = '\n';
+                                    InsertGap(ncode, ref j, startcolumn + 1);
+                                    precs = '\n';
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // insert space before a sign
+                        if ((CheckLetterNumber(prec) && CheckStandardSign(curc)) && !(curc == '+' && nexc == '+'))
+                            ncode[j++] = ' ';
+
+                        precs = curc;
+                        ncode[j++] = curc;
+
+                        // insert space after a sign
+                        if (CheckStandardSignWithExtra(curc) && CheckLetterNumber(nexc))
+                            ncode[j++] = ' ';
+                    }
+                    else if (precs == '\n' && nextcs != '}' && nextcs != '{')
+                    {
+                        SetPreWord(ref preword, ref word, ref k);
+
+                        // insert gap for 'if' without { } sign
+                        if (keyword_seen && parantes_no == 0)
+                        {
+                            keyword_seen = false;
+                            InsertGap(ncode, ref j, startcolumn + 1);
+                        }
+                        else
+                            InsertGap(ncode, ref j, startcolumn);
+                    }
+                }
+            }
+
+
+            CodeText = new string(ncode, 0, j);
+            range.Text = CodeText;
+            Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            //TextChecking();
+            Editing = false;
+        }
+
+        private bool CheckEndLine(char next)
+        {
+            if (next == '\r' || next == '\n' || next == '\0')
+                return true;
+
+            return false;
+        }
+
+        private void SetPreWord(ref string preword, ref char[] word, ref int k)
+        {
+            preword = new string(word, 0, k);
+            k = 0;
+        }
+
+        private bool CheckMainKeyword(ref string w)
+        {
+            if (w == "if" || w == "else" || w == "for" || w == "foreach" || w == "while")
+                return true;
+
+            return false;
+        }
+
+        private bool CheckStandardSign(char sign)
+        {
+            if (sign == '=' || sign == '+' || sign == '-' || sign == '*' || sign == '/' ||
+                sign == '%' || sign == '^' || sign == '<' || sign == '>')
+                return true;
+
+            return false;
+        }
+
+        private bool CheckStandardSignWithExtra(char sign)
+        {
+            if (sign == '=' || sign == '+' || sign == '-' || sign == '*' || sign == '/' ||
+                sign == '%' || sign == '^' || sign == '<' || sign == '>' || sign == ',')
+                return true;
+
+            return false;
+        }
+
+        private bool CheckLetterNumber(char c)
+        {
+            if (Char.IsLetter(c) || Char.IsNumber(c))
+                return true;
+
+            return false;
+        }
+
+        private char SkipForward(ref string t, char c, ref int i, int last)
+        {
+            char e = '\0';
+            int k = i;
+
+            while (k < last)
+            {
+                if (t[++k] != c)
+                {
+                    e = t[k];
+                    k--;
+                    break;
+                }
+            }
+
+            if (k - i > 1)
+                i = --k;
+
+
+            return e;
+        }
+
+        private void InsertGap(char[] t, ref int j, int startcolumn)
+        {
+            for (int k = 0; k < startcolumn * 4; k++)
+                t[j++] = ' ';
         }
     }
 }

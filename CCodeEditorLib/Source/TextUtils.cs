@@ -197,5 +197,109 @@ namespace CCodeEditorLib.Source
 
             return s;
         }
+
+        internal static string GetPreCharacter(RichTextBox rtx)
+        {
+            TextPointer caretPos = rtx.CaretPosition;
+            TextPointer pre = caretPos.GetPositionAtOffset(-1, LogicalDirection.Forward);
+
+            return new TextRange(caretPos, pre).Text;
+        }
+
+        internal static string FindCurrentXmlTag(RichTextBox rtx)
+        {
+            TextPointer caretPos = rtx.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+
+            string line = new TextRange(start, caretPos).Text;
+
+            int lindex = -1;
+
+            // find start tag index
+            for (int i = line.Length - 1; i > -1; i--)
+            {
+                if (line[i] == '<')
+                {
+                    lindex = i;
+                    break;
+                }
+            }
+
+            if (lindex != -1)
+            {
+                int j = -1;
+                char[] word = new char[50];
+
+                // find first word after < sign
+                for (int i = lindex + 1; i < line.Length; i++)
+                {
+                    if (line[i] != ' ')
+                    {
+                        if (j < 50)
+                            word[++j] = line[i];
+                        else
+                            break;
+                    }
+                    else if (j != -1)
+                        break;
+                }
+
+                if (j != -1)
+                    return new string(word, 0, j + 1);
+            }
+
+            return null;
+            //TextPointer s = start.GetPositionAtOffset(index);
+            //TextPointer e = start.GetPositionAtOffset(index + 13);
+
+            //TextPointer start = rtx.CaretPosition;
+            //string text1 = start.GetTextInRun(LogicalDirection.Backward);
+            //TextPointer end = start.GetNextContextPosition(LogicalDirection.Backward);
+            //string text2 = end.GetTextInRun(LogicalDirection.Backward);
+
+            //TextRange range = new TextRange(s, e);
+            //range.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Red);
+            //rtx.Selection.Select(start, start);
+        }
+
+        internal static string FindCurrentXmlTag(string line)
+        {
+            int lindex = -1;
+
+            // find start tag index
+            for (int i = line.Length - 1; i > -1; i--)
+            {
+                if (line[i] == '<')
+                {
+                    lindex = i;
+                    break;
+                }
+            }
+
+            if (lindex != -1)
+            {
+                int j = -1;
+                char[] word = new char[50];
+
+                // find first word after < sign
+                for (int i = lindex + 1; i < line.Length; i++)
+                {
+                    if (line[i] != ' ')
+                    {
+                        if (j < 50)
+                            word[++j] = line[i];
+                        else
+                            break;
+                    }
+                    else if (j != -1)
+                        break;
+                }
+
+                if (j != -1)
+                    return new string(word, 0, j + 1);
+            }
+
+            return null;
+        }
     }
 }
