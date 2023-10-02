@@ -56,6 +56,37 @@ namespace CCodeEditorLib
         public delegate void XMLChangedHandler(object sender, string Xml);
         public event XMLChangedHandler XmlChanged;
 
+        public string Text
+        {
+            set
+            {
+                if (IsLoaded)
+                {
+                    Editing = true;
+                    CodeText = value;
+
+                    tbxCode.Document.Blocks.Clear();
+                    tbxCode.Document.Blocks.Add(new Paragraph(new Run(CodeText)));
+
+                    CodeText = Source.XMLParser.FormatXml(CodeText);
+                    Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                    TextChecking();
+
+                    Editing = false;
+                }
+            }
+        }
+
+        public void Clear()
+        {
+            Editing = true;
+            CodeText = "";
+
+            tbxCode.Document.Blocks.Clear();
+
+            Editing = false;
+        }
+
         public CodeEditor()
         {
             InitializeComponent();
@@ -234,17 +265,8 @@ namespace CCodeEditorLib
         {
             if (!Editing)
             {
-                UndoAction = false;
                 CodeText = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).Text;
-                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-
-                if (!string.IsNullOrEmpty(CodeText))
-                    UndoStack.Push(CodeText);
-
-                if (string.IsNullOrEmpty(Lines.Last()))
-                    SetLineNumber(Lines.Length);
-                else
-                    SetLineNumber(Lines.Length + 1);
+                StartChecking();
 
                 Timer.Stop();
                 Timer.Start();
@@ -255,6 +277,20 @@ namespace CCodeEditorLib
                     XmlTimer.Start();
                 }
             }
+        }
+
+        private void StartChecking()
+        {
+            UndoAction = false;
+            Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+
+            if (!string.IsNullOrEmpty(CodeText))
+                UndoStack.Push(CodeText);
+
+            if (string.IsNullOrEmpty(Lines.Last()))
+                SetLineNumber(Lines.Length);
+            else
+                SetLineNumber(Lines.Length + 1);
         }
 
         private TextPointer FindBeginOfWord()
@@ -541,7 +577,10 @@ namespace CCodeEditorLib
                 tbxCode.Document.Blocks.Add(paragraph);
             }
 
-            tbxCode.CaretPosition = tbxCode.GetPositionFromPoint(point, true);
+            var tp = tbxCode.GetPositionFromPoint(point, true);
+
+            if (tp != null)
+                tbxCode.CaretPosition = tp;
         }
 
         public string Compile()

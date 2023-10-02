@@ -9,6 +9,6 @@
         Title="CCodeEditor" Height="450" Width="800">
     
     <Grid>
-        <ctrl:CodeEditor DisplayErrorSection="Visible" IsXML="False" Error="" IsEnableXmlFormatter="False" CheckXmlError="False"/>
+        <ctrl:CodeEditor DisplayErrorSection="Visible" IsXML="False" Error="" IsEnableXmlFormatter="False" CheckXmlError="False" Name="tbxCode"/>
     </Grid>
 </Window>
