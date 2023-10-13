@@ -15,6 +15,11 @@ namespace CCodeEditorLib.Source
         Class,
         Method,
         XMLTag,
+        XMLEndTag,
+        XMLStart,
+        XMLRootTag,
+        XMLEnd,
+        XMLEqual,
         XMLAttrib
     }
 

@@ -68,8 +68,10 @@
     <Compile Include="Source\KeywordClass.cs" />
     <Compile Include="Source\LType.cs" />
     <Compile Include="Source\Syntax.cs" />
+    <Compile Include="Source\TagPoint.cs" />
     <Compile Include="Source\TextUtils.cs" />
     <Compile Include="Source\TypeValue.cs" />
+    <Compile Include="Source\UndoRedoAction.cs" />
     <Compile Include="Source\XMLParser.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
