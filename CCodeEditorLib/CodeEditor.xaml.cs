@@ -27,16 +27,14 @@ namespace CCodeEditorLib
     {
         private bool Editing = false;
         private bool UndoAction = false;
-        private bool? InitXML = null;
         private bool Formated = false;
-        private int XMLTagIndex = 0;
+        private bool Checking = false;
+        private int TagCounter = 0;
         private string FilterWord = "";
-        private Point Cpoint;
         private Keyword CurrentKeyword;
         private TextPointer StartWord;
         private TextPointer EndWord;
-        private List<bool> XMLNewTags = new List<bool>();
-        private List<int> XMLTagIndexes = new List<int>();
+        private List<string> TagNames;
         private List<Keyword> AttribList;
         private List<LType> Types = new List<LType>();
         private List<Keyword> Keywords = new List<Keyword>();
@@ -71,12 +69,9 @@ namespace CCodeEditorLib
                 {
                     Editing = true;
 
-                    InitXML = null;
-                    XMLTagIndex = 0;
-                    XMLTagIndexes.Clear();
-
                     CodeText = Source.XMLParser.FormatXml(value);
-                    ConvertXMLToRun();
+                    Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+
                     TextChecking();
                     SetLineNumber();
 
@@ -207,11 +202,17 @@ namespace CCodeEditorLib
         {
             foreach (var item in classes)
             {
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name} />", KeywordType.XMLTag, null, true, 2) { KeyName = item.Name, Suggestions = item.Properties, BaseSuggestions = item.BaseProperties });
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name}>", KeywordType.XMLTag, null, false));
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{item.Name}>", KeywordType.XMLEndTag, null, false));
+                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name}/>", KeywordType.XMLTag, null, true, 2) { KeyName = item.Name, Suggestions = item.Properties, BaseSuggestions = item.BaseProperties });
                 Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name}", KeywordType.XMLTag, null, false));
             }
+        }
+
+        public void SetXmlClassWithChild(KeywordClass cclass)
+        {
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{cclass.Name}>", KeywordType.XMLTag, null, true, 1)
+            { KeyName = cclass.Name, Suggestions = cclass.Properties, BaseSuggestions = cclass.BaseProperties, InsertAfter = $"</{cclass.Name}>" });
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{cclass.Name}>", KeywordType.XMLEndTag, null, true));
+            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{cclass.Name}", KeywordType.XMLTag, null, false));
         }
 
         public List<Keyword> GetXmlAttrib(List<string> attribs)
@@ -267,16 +268,9 @@ namespace CCodeEditorLib
         private void TextChecking()
         {
             if (!IsXML)
-            {
-                if (string.IsNullOrEmpty(Lines.Last()))
-                    CheckCodeKeyword(Lines.Length - 1);
-                else
-                    CheckCodeKeyword(Lines.Length);
-            }
+                CheckCodeKeyword();
             else
                 CheckXMLKeyword();
-
-            //string code = Compile();
         }
 
         private void tbxCode_TextChanged(object sender, TextChangedEventArgs e)
@@ -288,8 +282,7 @@ namespace CCodeEditorLib
                 // StartChecking
                 UndoAction = false;
 
-                if (!IsXML)
-                    Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
                 if (!string.IsNullOrEmpty(CodeText))
                     UndoStack.Push(CodeText);
@@ -400,32 +393,22 @@ namespace CCodeEditorLib
             return Math.Abs(v2 - v1) < 1.0;
         }
 
-        private void CollectXMLKeyword(string line, Paragraph paragraph, List<Paragraph> blocks, object tag_object)
+        private void CollectXMLKeyword(int index, Paragraph paragraph)
         {
             int k = 0;
             bool collect_string = false;
             char[] word = new char[1024];
 
-            string tag = TextUtils.FindCurrentXmlTag(line);
+            string tag = TextUtils.FindCurrentXmlTag(Lines[index]);
 
             if (tag != null)
                 CurrentKeyword = Keywords.Where(p => p.KeyName == tag).FirstOrDefault();
 
-            for (int j = 0; j < line.Length; j++)
+            for (int j = 0; j < Lines[index].Length; j++)
             {
                 bool sign = false;
-                char c = line[j];
+                char c = Lines[index][j];
                 int nj = j + 1;
-
-                if (c == '\t' || c == '\r')
-                    continue;
-
-                if (c == '\n')
-                {
-                    blocks.Add(paragraph);
-                    paragraph = new Paragraph();
-                    continue;
-                }
 
                 foreach (var delimiter in Delimiters)
                 {
@@ -441,16 +424,16 @@ namespace CCodeEditorLib
                     word[k] = c;
                     k++;
 
-                    if (nj == line.Length)
+                    if (nj == Lines[index].Length)
                     {
                         if (collect_string)
                             paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
                         else
-                            CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph, tag_object);
+                            CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
                     }
                     else if (k > 1 && c == '>')
                     {
-                        CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph, tag_object);
+                        CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
                         k = 0;
                     }
                 }
@@ -463,11 +446,11 @@ namespace CCodeEditorLib
                         {
                             collect_string = true;
 
-                            CheckKeywordInLine(false, c, new string(word, 0, k), paragraph, tag_object);
+                            CheckKeywordInLine(false, c, new string(word, 0, k), paragraph);
                             word[0] = '"';
                             k = 1;
 
-                            if (nj == line.Length)
+                            if (nj == Lines[index].Length)
                                 paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
                         }
                         else
@@ -484,12 +467,12 @@ namespace CCodeEditorLib
                         word[k] = c;
                         k++;
 
-                        if (nj == line.Length)
+                        if (nj == Lines[index].Length)
                             paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
                     }
                     else
                     {
-                        CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph, tag_object);
+                        CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
                         k = 0;
                     }
                 }
@@ -498,63 +481,60 @@ namespace CCodeEditorLib
 
         private void CheckXMLKeyword()
         {
-            int tagindextemp = XMLTagIndex;
+            if (Checking)
+                return;
 
-            if (!Formated)
-            {
-                Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
-                Cpoint = new Point(rect.X, rect.Y);
+            Checking = true;
+            int lcount;
 
-                XMLNewTags.Clear();
-                XMLTagIndexes.Clear();
-            }
+            if (string.IsNullOrEmpty(Lines.Last()))
+                lcount = Lines.Length - 1;
             else
-                XMLTagIndex = 0;
+                lcount = Lines.Length;
 
-            List<Paragraph> blocks = new List<Paragraph>();
+            // Save caret position
+            Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
+            Point point = new Point(rect.X, rect.Y);
 
-            foreach (Paragraph p in tbxCode.Document.Blocks)
+            // Start checking
+            tbxCode.Document.Blocks.Clear();
+
+            for (int i = 0; i < lcount; i++)
             {
                 Paragraph paragraph = new Paragraph();
 
-                foreach (Run item in p.Inlines)
-                {
-                    TextRange range = new TextRange(item.ContentStart, item.ContentEnd);
+                CollectXMLKeyword(i, paragraph);
 
-                    if (range != null)
-                    {
-                        if (!string.IsNullOrEmpty(range.Text))
-                            CollectXMLKeyword(range.Text, paragraph, blocks, item.Tag);
-                    }
-                }
-
-                blocks.Add(paragraph);
+                tbxCode.Document.Blocks.Add(paragraph);
             }
 
-            // add paragraphs
-            tbxCode.Document.Blocks.Clear();
-            tbxCode.Document.Blocks.AddRange(blocks);
-
             // return caret to pre position
-            var tp = tbxCode.GetPositionFromPoint(Cpoint, true);
+            var tp = tbxCode.GetPositionFromPoint(point, true);
 
             if (tp != null)
                 tbxCode.CaretPosition = tp;
 
-            if (Formated)
-            {
-                Formated = false;
-                XMLTagIndex = tagindextemp;
-            }
+            Checking = false;
         }
 
-        private void CheckCodeKeyword(int lcount)
+        private void CheckCodeKeyword()
         {
+            if (Checking)
+                return;
+
+            Checking = true;
+
+            int lcount;
             bool collect_comment_star = false;
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
-            Cpoint = new Point(rect.X, rect.Y);
+            Point point = new Point(rect.X, rect.Y);
 
             tbxCode.Document.Blocks.Clear();
+
+            if (string.IsNullOrEmpty(Lines.Last()))
+                lcount = Lines.Length - 1;
+            else
+                lcount = Lines.Length;
 
             for (int i = 0; i < lcount; i++)
             {
@@ -722,41 +702,12 @@ namespace CCodeEditorLib
                 tbxCode.Document.Blocks.Add(paragraph);
             }
 
-            var tp = tbxCode.GetPositionFromPoint(Cpoint, true);
+            var tp = tbxCode.GetPositionFromPoint(point, true);
 
             if (tp != null)
                 tbxCode.CaretPosition = tp;
-        }
 
-        public List<int> GetXMLTagIndexes()
-        {
-            return XMLTagIndexes;
-        }
-
-        public List<bool> GetXMLNewTags()
-        {
-            return XMLNewTags;
-        }
-
-        public void ReindexXMLTags()
-        {
-            XMLTagIndex = 0;
-            XMLTagIndexes.Clear();
-
-            foreach (Paragraph item in tbxCode.Document.Blocks)
-            {
-                foreach (Run run in item.Inlines)
-                {
-                    if (run.Tag != null)
-                    {
-                        run.Tag = XMLTagIndex;
-                        XMLTagIndexes.Add(XMLTagIndex++);
-                    }
-                }
-            }
-
-            for (int i = 0; i < XMLNewTags.Count; i++)
-                XMLNewTags[i] = false;
+            Checking = false;
         }
 
         public string Compile()
@@ -934,7 +885,7 @@ namespace CCodeEditorLib
             return code;
         }
 
-        private void CheckKeywordInLine(bool sign, char c, string part, Paragraph paragraph, object tag_object = null)
+        private void CheckKeywordInLine(bool sign, char c, string part, Paragraph paragraph)
         {
             if (!string.IsNullOrEmpty(part))
             {
@@ -951,23 +902,47 @@ namespace CCodeEditorLib
                         {
                             if (!Formated)
                             {
-                                if (tag_object != null)
+                                if (TagNames != null && TagNames.Count > 0 && TagCounter < TagNames.Count)
                                 {
-                                    run.Tag = tag_object;
-                                    XMLNewTags.Add(false);
-                                }
-                                else
-                                {
-                                    run.Tag = XMLTagIndex++;
-                                    XMLNewTags.Add(true);
+                                    if (TagNames[TagCounter] != null)
+                                    {
+                                        int s = 0;
+
+                                        if (part[part.Length - 1] == '>')
+                                        {
+                                            if (part[part.Length - 2] == '/')
+                                                s = 2;
+                                            else
+                                                s = 1;
+
+                                            run = new Run(part.Substring(0, part.Length - s) + " ");
+                                            run.Foreground = key.Color;
+                                        }
+
+                                        // first add keyword
+                                        paragraph.Inlines.Add(run);
+                                        // then add name
+                                        run = new Run("Name");
+                                        run.Foreground = Brushes.LightGreen;
+                                        paragraph.Inlines.Add(run);
+                                        run = new Run("=\"" + TagNames[TagCounter] + "\"");
+
+                                        if (s == 1)
+                                        {
+                                            paragraph.Inlines.Add(run);
+                                            run = new Run(">");
+                                            run.Foreground = key.Color;
+                                        }
+                                        else if (s == 2)
+                                        {
+                                            paragraph.Inlines.Add(run);
+                                            run = new Run("/>");
+                                            run.Foreground = key.Color;
+                                        }
+                                    }
                                 }
 
-                                XMLTagIndexes.Add((int)run.Tag);
-                            }
-                            else
-                            {
-                                if (XMLTagIndex < XMLTagIndexes.Count)
-                                    run.Tag = XMLTagIndexes[XMLTagIndex++];
+                                TagCounter++;
                             }
                         }
                     }
@@ -1001,6 +976,18 @@ namespace CCodeEditorLib
 
             if (sign)
                 paragraph.Inlines.Add(new Run(c.ToString()) { Foreground = Brushes.LightGray });
+        }
+
+        public void SetTagNames(List<string> names)
+        {
+            Editing = true;
+            TagNames = names;
+            TagCounter = 0;
+
+            CheckXMLKeyword();
+
+            TagNames = null;
+            Editing = false;
         }
 
         private void tbxCode_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -1152,6 +1139,10 @@ namespace CCodeEditorLib
                         sugg = " ";
 
                     sugg += keyword.ReplaceKey == null ? keyword.Key : keyword.ReplaceKey;
+
+                    if (keyword.InsertAfter != null)
+                        sugg += keyword.InsertAfter;
+
                     tbxCode.CaretPosition.InsertTextInRun(sugg);
 
                     for (int i = 0; i < keyword.ReturnBackward; i++)
@@ -1187,10 +1178,7 @@ namespace CCodeEditorLib
                         RedoStack.Push(CodeText);
                     }
 
-                    if (!IsXML)
-                        Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-                    else
-                        ConvertXMLToRun();
+                    Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
                     TextChecking();
                     SetLineNumber();
@@ -1218,11 +1206,8 @@ namespace CCodeEditorLib
                 CodeText = RedoStack.Pop();
                 UndoStack.Push(CodeText);
 
-                if (!IsXML)
-                    Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-                else
-                    ConvertXMLToRun();
-                
+                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+
                 TextChecking();
                 SetLineNumber();
                 Editing = false;
@@ -1278,28 +1263,14 @@ namespace CCodeEditorLib
             Editing = true;
             Formated = true;
 
-            CodeText = Source.XMLParser.FormatXml(CodeText);
-            ConvertXMLToRun();
-            TextChecking();
+            TextRange range = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd);
+            CodeText = Source.XMLParser.FormatXml(range.Text);
+            Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            CheckXMLKeyword();
             SetLineNumber();
 
+            Formated = false;
             Editing = false;
-        }
-
-        private void ConvertXMLToRun()
-        {
-            if (IsXML)
-            {
-                // save caret postition to restore
-                Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
-                Cpoint = new Point(rect.X, rect.Y);
-
-                tbxCode.Document.Blocks.Clear();
-                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-
-                foreach (var item in Lines)
-                    tbxCode.Document.Blocks.Add(new Paragraph(new Run(item)));
-            }
         }
 
         private void Format()

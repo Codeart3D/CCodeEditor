@@ -29,6 +29,7 @@ namespace CCodeEditorLib.Source
         public string KeyName { get; set; }
         public string Key { get; set; }
         public string ReplaceKey { get; set; }
+        public string InsertAfter { get; set; }
         public Brush Color { get; set; }
         public KeywordType Type { get; set; }
         public int ReturnBackward { get; set; }
