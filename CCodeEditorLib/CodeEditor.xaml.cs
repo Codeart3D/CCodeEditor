@@ -56,6 +56,7 @@ namespace CCodeEditorLib
         public string Error { get { return tbkError.Text; } set { tbkError.Text = value; } }
         public bool CheckXmlError { get; set; }
         public bool IsEnableXmlFormatter { get; set; }
+        public bool UndoRedoShortcutKey { get; set; } = true;
 
         // Event
         public delegate void XMLChangedHandler(object sender, string Xml);
@@ -995,7 +996,10 @@ namespace CCodeEditorLib
             if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 if (e.Key == Key.Z)
-                    Redo();
+                {
+                    if (UndoRedoShortcutKey)
+                        Redo();
+                }
             }
             else if (Keyboard.Modifiers == ModifierKeys.Control)
             {
@@ -1016,9 +1020,15 @@ namespace CCodeEditorLib
                 else if (e.Key == Key.D)
                     TextUtils.CopyCurrentLine(tbxCode);
                 else if (e.Key == Key.Z)
-                    Undo();
+                {
+                    if (UndoRedoShortcutKey)
+                        Undo();
+                }
                 else if (e.Key == Key.Y)
-                    Redo();
+                {
+                    if (UndoRedoShortcutKey)
+                        Redo();
+                }
 
                 popSuggestion.IsOpen = false;
                 lstKeyword.Items.Filter = null;
@@ -1161,7 +1171,7 @@ namespace CCodeEditorLib
             SelectSuggestion();
         }
 
-        private void Undo()
+        public void Undo()
         {
             try
             {
@@ -1196,7 +1206,7 @@ namespace CCodeEditorLib
             }
         }
 
-        private void Redo()
+        public void Redo()
         {
             if (RedoStack.Count > 0)
             {
