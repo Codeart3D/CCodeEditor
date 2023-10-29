@@ -1,8 +1,11 @@
-﻿using CCodeEditorLib.Source;
+﻿using CCodeEditorLib.CSharp;
+using CCodeEditorLib.Source;
+using Codeart3D_Editor.Model;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -25,12 +28,14 @@ namespace CCodeEditorLib
     /// </summary>
     public partial class CodeEditor : UserControl
     {
+        private bool InitOnce = false;
         private bool Editing = false;
         private bool UndoAction = false;
         private bool Formated = false;
         private bool Checking = false;
         private int TagCounter = 0;
         private string FilterWord = "";
+        private Typeface Typeface;
         private Keyword CurrentKeyword;
         private TextPointer StartWord;
         private TextPointer EndWord;
@@ -41,8 +46,9 @@ namespace CCodeEditorLib
         private string CurrentTag = null;
         private string[] Lines;
         private string CodeText;
+        private TextBlock[] textBlocks = new TextBlock[100];
         private char[] Delimiters;
-        private char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"' };
+        private char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';' };
         private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
 
         private Stack<string> UndoStack = new Stack<string>();
@@ -51,7 +57,9 @@ namespace CCodeEditorLib
         private DispatcherTimer Timer;
         private DispatcherTimer XmlTimer = null;
 
-        public bool IsXML { get; set; }
+        private SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
+        private SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(60, 150, 150));
+
         public Visibility DisplayErrorSection { get { return tbkError.Visibility; } set { tbkError.Visibility = value; } }
         public string Error { get { return tbkError.Text; } set { tbkError.Text = value; } }
         public bool CheckXmlError { get; set; }
@@ -62,15 +70,35 @@ namespace CCodeEditorLib
         public delegate void XMLChangedHandler(object sender, string Xml);
         public event XMLChangedHandler XmlChanged;
 
+        public event TextChangedEventHandler TextChanged;
+
+        public enum EditorCodeType
+        {
+            CSharp,
+            Shader,
+            XML
+        }
+
+        private EditorCodeType InputCodeType;
+
         public string Text
         {
+            get
+            {
+                return new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).Text;
+            }
+
             set
             {
-                if (IsLoaded)
+                //if (IsLoaded)
                 {
                     Editing = true;
 
-                    CodeText = Source.XMLParser.FormatXml(value);
+                    if (CodeType == EditorCodeType.XML)
+                        CodeText = Source.XMLParser.FormatXml(value);
+                    else
+                        CodeText = value;
+
                     Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
                     TextChecking();
@@ -80,6 +108,8 @@ namespace CCodeEditorLib
                 }
             }
         }
+
+        public bool IsReadOnly { get { return tbxCode.IsReadOnly; } set { tbxCode.IsReadOnly = value; } }
 
         public void Clear()
         {
@@ -95,101 +125,185 @@ namespace CCodeEditorLib
         public CodeEditor()
         {
             InitializeComponent();
+
+            Typeface = new Typeface(tbxCode.FontFamily, tbxCode.FontStyle, tbxCode.FontWeight, tbxCode.FontStretch);
+
+            for (int i = 0; i < 100; i++)
+            {
+                textBlocks[i] = new TextBlock() { Margin = new Thickness(0, 0, 0, 0), TextAlignment = TextAlignment.Right, FontSize = 13, Foreground = LineNumberColor };
+                griLine.Children.Add(textBlocks[i]);
+            }
+        }
+
+        public static void SetClasses(List<FunctionProperty> funcs, List<Asset> Objects)
+        {
+            CSharpParser.SetClasses(funcs, Objects);
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
-            if (IsXML)
+            if (!InitOnce)
             {
-                if (IsEnableXmlFormatter)
+                InitOnce = true;
+
+                if (InputCodeType == EditorCodeType.XML)
                 {
-                    XmlTimer = new DispatcherTimer();
-                    XmlTimer.Interval = new TimeSpan(0, 0, 10);
-                    XmlTimer.Tick += XmlTimer_Tick;
+                    if (IsEnableXmlFormatter)
+                    {
+                        XmlTimer = new DispatcherTimer();
+                        XmlTimer.Interval = new TimeSpan(0, 0, 10);
+                        XmlTimer.Tick += XmlTimer_Tick;
+                    }
                 }
 
-                Delimiters = XmlDelimiters;
+                LType lt = new LType("var", KeywordType.Main);
+                lt.AcceptValues.Add("%num%");
+                lt.AcceptValues.Add("%str%");
+                Types.Add(lt);
 
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "<", KeywordType.XMLStart, null, false));
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "/>", KeywordType.XMLEnd, null, false));
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, ">", KeywordType.XMLEnd, null, false));
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "=", KeywordType.XMLEqual, "=\"\"", false, 1));
+                Types.Add(new LType("string", KeywordType.Struct));
+                Types.Add(new LType("vector", KeywordType.Struct));
+                Types.Add(new LType("color", KeywordType.Struct));
 
+                Dictionary<string, TypeValue> TypeTables = new Dictionary<string, TypeValue>();
 
-                if (Debugger.IsAttached)
-                {
-                    List<string> basep = new List<string>();
-                    basep.Add("X");
-                    basep.Add("Y");
-                    basep.Add("Width");
-                    basep.Add("Height");
+                Syntax.Types = Types;
+                Syntax.TypeTables = TypeTables;
+                LType.TypeTables = TypeTables;
 
-                    List<string> pi = new List<string>();
-                    pi.Add("Color");
-                    pi.Add("Texture");
+                lt.Check("var A = 0;");
+                Syntax syntax = new Syntax("SetValue(%var%);");
+                bool res = syntax.Check("SetValue(10);");
 
-                    List<string> ps = new List<string>();
-                    ps.Add("Play");
-                    ps.Add("Volume");
+                Timer = new DispatcherTimer();
+                Timer.Interval = new TimeSpan(0, 0, 0, 0, 400);
+                Timer.Tick += Timer_Tick;
 
-                    List<string> pp = new List<string>();
-                    pp.Add("Background");
-                    pp.Add("Foreground");
-
-                    var basepa = GetXmlAttrib(basep);
-                    var pia = GetXmlAttrib(pi);
-                    var psa = GetXmlAttrib(ps);
-                    var ppa = GetXmlAttrib(pp);
-
-                    var att = new List<KeywordClass>();
-                    att.Add(new KeywordClass("Image", pia, basepa));
-                    att.Add(new KeywordClass("Sound", psa, basepa));
-                    att.Add(new KeywordClass("Progressbar", ppa, basepa));
-                    SetXmlClasses(att);
-                }
+                lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
             }
-            else
-            {
-                Delimiters = CodeDelimiters;
-
-                Keywords.Add(new Keyword(Brushes.DeepSkyBlue, "if"));
-                Keywords.Add(new Keyword(Brushes.DeepSkyBlue, "foreach"));
-                Keywords.Add(new Keyword(Brushes.DeepSkyBlue, "for"));
-                Keywords.Add(new Keyword(Brushes.DeepSkyBlue, "var"));
-                Keywords.Add(new Keyword(Brushes.DeepSkyBlue, "return"));
-                Keywords.Add(new Keyword(Brushes.DeepSkyBlue, "continue"));
-                Keywords.Add(new Keyword(Brushes.DeepSkyBlue, "break"));
-                Keywords.Add(new Keyword(Brushes.DeepSkyBlue, "null"));
-                Keywords.Add(new Keyword(Brushes.LightSeaGreen, "String", KeywordType.Class));
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "Control", KeywordType.Enum));
-            }
-
-            LType lt = new LType("var", KeywordType.Main);
-            lt.AcceptValues.Add("%num%");
-            lt.AcceptValues.Add("%str%");
-            Types.Add(lt);
-
-            Types.Add(new LType("string", KeywordType.Struct));
-            Types.Add(new LType("vector", KeywordType.Struct));
-            Types.Add(new LType("color", KeywordType.Struct));
-
-            Dictionary<string, TypeValue> TypeTables = new Dictionary<string, TypeValue>();
-
-            Syntax.Types = Types;
-            Syntax.TypeTables = TypeTables;
-            LType.TypeTables = TypeTables;
-
-            lt.Check("var A = 0;");
-            Syntax syntax = new Syntax("SetValue(%var%);");
-            bool res = syntax.Check("SetValue(10);");
-
-            Timer = new DispatcherTimer();
-            Timer.Interval = new TimeSpan(0, 0, 0, 0, 400);
-            Timer.Tick += Timer_Tick;
-
-            lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
 
             tbxCode.Focus();
+        }
+
+        public EditorCodeType CodeType
+        {
+            get { return InputCodeType; }
+
+            set
+            {
+                InputCodeType = value;
+                Keywords.Clear();
+
+                if (value == EditorCodeType.CSharp)
+                {
+                    Delimiters = CodeDelimiters;
+
+                    Keywords.Add(new Keyword(MainKeywordBrush, "if"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "else"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "foreach"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "for"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "var"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "return"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "continue"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "break"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "null"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "true"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "false"));
+
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "String", KeywordType.Class));
+                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "Control", KeywordType.Enum));
+                }
+                else if (value == EditorCodeType.Shader)
+                {
+                    Delimiters = CodeDelimiters;
+
+                    Keywords.Add(new Keyword(MainKeywordBrush, "void"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "int"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "float"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "double"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "bool"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "char"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "if"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "else"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "for"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "return"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "continue"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "break"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "null"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "true"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "false"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "struct"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "class"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "in"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "out"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "inout"));
+
+                    Keywords.Add(new Keyword(MainKeywordBrush, "uniform"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "varying"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "attribute"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "lowp"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "mediump"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "highp"));
+
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "vec2"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "vec3"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "vec4"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat2"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat3"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat4"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "sampler2D"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "texture2D"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_Position"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FragColor"));                    
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FragCoord"));
+
+                    Keywords.Add(new Keyword(Brushes.HotPink, "#define"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "PIXEL_SHADER"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "VERTEX_SHADER"));
+                }
+                else if (value == EditorCodeType.XML)
+                {
+                    Delimiters = XmlDelimiters;
+
+                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "<", KeywordType.XMLStart, null, false));
+                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "/>", KeywordType.XMLEnd, null, false));
+                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, ">", KeywordType.XMLEnd, null, false));
+                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "=", KeywordType.XMLEqual, "=\"\"", false, 1));
+
+
+                    if (Debugger.IsAttached)
+                    {
+                        List<string> basep = new List<string>();
+                        basep.Add("X");
+                        basep.Add("Y");
+                        basep.Add("Width");
+                        basep.Add("Height");
+
+                        List<string> pi = new List<string>();
+                        pi.Add("Color");
+                        pi.Add("Texture");
+
+                        List<string> ps = new List<string>();
+                        ps.Add("Play");
+                        ps.Add("Volume");
+
+                        List<string> pp = new List<string>();
+                        pp.Add("Background");
+                        pp.Add("Foreground");
+
+                        var basepa = GetXmlAttrib(basep);
+                        var pia = GetXmlAttrib(pi);
+                        var psa = GetXmlAttrib(ps);
+                        var ppa = GetXmlAttrib(pp);
+
+                        var att = new List<KeywordClass>();
+                        att.Add(new KeywordClass("Image", pia, basepa));
+                        att.Add(new KeywordClass("Sound", psa, basepa));
+                        att.Add(new KeywordClass("Progressbar", ppa, basepa));
+                        SetXmlClasses(att);
+                    }
+                }
+            }
         }
 
         public void SetXmlRoot(KeywordClass root)
@@ -233,6 +347,7 @@ namespace CCodeEditorLib
                 Timer.Stop();
                 XmlTimer.Stop();
                 XmlFormat();
+                CheckScrollBarVisibility();
             }
             catch { }
         }
@@ -246,7 +361,7 @@ namespace CCodeEditorLib
             SetLineNumber();
 
             // this methode must call after TextChecking because find childs indexes
-            if (IsXML && CheckXmlError)
+            if (InputCodeType == EditorCodeType.XML && CheckXmlError)
                 XmlErrorChecking();
 
             Editing = false;
@@ -268,10 +383,35 @@ namespace CCodeEditorLib
 
         private void TextChecking()
         {
-            if (!IsXML)
+            if (InputCodeType != EditorCodeType.XML)
                 CheckCodeKeyword();
             else
                 CheckXMLKeyword();
+        }
+
+        private void SetLineNumber()
+        {
+            int i = 0;
+            int num = 0;
+            double height = tbxCode.ActualHeight + 20;
+
+            foreach (var item in tbxCode.Document.Blocks)
+            {
+                num++;
+                Rect rect = item.ContentStart.GetCharacterRect(LogicalDirection.Forward);
+
+                if (rect.Top > -20 && rect.Top < height)
+                {
+                    textBlocks[i].Text = num.ToString();
+                    textBlocks[i].Visibility = Visibility.Visible;
+                    textBlocks[i++].Margin = new Thickness(0, rect.Top, 0, 0);
+                }
+                else if (rect.Top > height)
+                    break;
+            }
+
+            for (; i < 100; i++)
+                textBlocks[i].Visibility = Visibility.Collapsed;
         }
 
         private void tbxCode_TextChanged(object sender, TextChangedEventArgs e)
@@ -279,6 +419,7 @@ namespace CCodeEditorLib
             if (!Editing)
             {
                 CodeText = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).Text;
+                CheckScrollBarVisibility();
 
                 // StartChecking
                 UndoAction = false;
@@ -291,11 +432,23 @@ namespace CCodeEditorLib
                 Timer.Stop();
                 Timer.Start();
 
-                if (IsXML && IsEnableXmlFormatter)
+                if (InputCodeType == EditorCodeType.XML && IsEnableXmlFormatter)
                 {
                     XmlTimer.Stop();
                     XmlTimer.Start();
                 }
+
+                TextChanged?.Invoke(sender, e);
+            }
+        }
+
+        private void CheckScrollBarVisibility()
+        {
+            if (CodeText != null && IsLoaded)
+            {
+                FormattedText ft = new FormattedText(CodeText, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface, tbxCode.FontSize, Brushes.Black);
+                tbxCode.Document.PageWidth = ft.Width + 12;
+                tbxCode.HorizontalScrollBarVisibility = (tbxCode.ActualWidth < tbxCode.Document.PageWidth) ? ScrollBarVisibility.Visible : ScrollBarVisibility.Hidden;
             }
         }
 
@@ -313,7 +466,7 @@ namespace CCodeEditorLib
             for (Int32 i = stringBeforeCaret.Length - 1; i >= 0; --i)
             {
                 // if the character at the location CaretPosition-LeftOffset is a letter, we move more to the left
-                if (IsXML)
+                if (InputCodeType == EditorCodeType.XML)
                 {
                     if (Char.IsLetter(stringBeforeCaret[i]) || stringBeforeCaret[i] == '<' || stringBeforeCaret[i] == '/')
                         countToMoveLeft++;
@@ -377,16 +530,6 @@ namespace CCodeEditorLib
                 popSuggestion.VerticalOffset = point.Y;
                 popSuggestion.IsOpen = true;
             }
-        }
-
-        private void SetLineNumber()
-        {
-            string lineno = "1\n";
-
-            for (int i = 2; i <= tbxCode.Document.Blocks.Count; i++)
-                lineno += i + "\n";
-
-            tbkLineNo.Text = lineno;
         }
 
         private bool Equal(double v1, double v2)
@@ -897,7 +1040,7 @@ namespace CCodeEditorLib
                 {
                     run.Foreground = key.Color;
 
-                    if (IsXML)
+                    if (InputCodeType == EditorCodeType.XML)
                     {
                         if (key.Type == KeywordType.XMLTag)
                         {
@@ -1009,12 +1152,7 @@ namespace CCodeEditorLib
                     return;
                 }
                 if (e.Key == Key.K)
-                {
-                    if (IsXML)
-                        XmlFormat();
-                    else
-                        Format();
-                }
+                    Format();
                 else if (e.Key == Key.Enter)
                     TextUtils.InsertEmptyLine(tbxCode);
                 else if (e.Key == Key.D)
@@ -1075,7 +1213,7 @@ namespace CCodeEditorLib
         {
             string inputchar = null;
 
-            if (!IsXML)
+            if (InputCodeType != EditorCodeType.XML)
             {
                 if (key >= Key.A && key <= Key.Z)
                 {
@@ -1268,6 +1406,16 @@ namespace CCodeEditorLib
                 lstKeyword.ScrollIntoView(lstKeyword.SelectedItem);
         }
 
+        public void Format()
+        {
+            if (InputCodeType == EditorCodeType.XML)
+                XmlFormat();
+            else
+                FormatCode();
+
+            CheckScrollBarVisibility();
+        }
+
         private void XmlFormat()
         {
             Editing = true;
@@ -1283,7 +1431,7 @@ namespace CCodeEditorLib
             Editing = false;
         }
 
-        private void Format()
+        private void FormatCode()
         {
             Editing = true;
             int startcolumn = 0;
@@ -1330,10 +1478,18 @@ namespace CCodeEditorLib
                 }
                 else if (collect_comment)
                 {
-                    if (curc == '\r' || curc == '\n' || curc == '\0')
+                    if (curc == '\r')
+                    {
+                        ncode[j++] = '\n';
                         collect_comment = false;
-
-                    ncode[j++] = curc;
+                    }
+                    else if (curc == '\n' || curc == '\0')
+                    {
+                        ncode[j++] = curc;
+                        collect_comment = false;
+                    }
+                    else
+                        ncode[j++] = curc;
 
                     continue;
                 }
@@ -1468,9 +1624,15 @@ namespace CCodeEditorLib
                                 if (nexc != ' ')
                                 {
                                     ncode[j++] = ')';
-                                    ncode[j++] = '\n';
-                                    InsertGap(ncode, ref j, startcolumn + 1);
-                                    precs = '\n';
+
+                                    // end of functions
+                                    if (nexc != ';')
+                                    {
+                                        ncode[j++] = '\n';
+                                        InsertGap(ncode, ref j, startcolumn + 1);
+                                        precs = '\n';
+                                    }
+
                                     continue;
                                 }
                             }
@@ -1504,10 +1666,14 @@ namespace CCodeEditorLib
             }
 
             CodeText = new string(ncode, 0, j);
-            range.Text = CodeText;
-            Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            //TextChecking();
+            Lines = CodeText.Split('\n');
+            TextChecking();
             Editing = false;
+
+            //string error = CSharpParser.Compile(CodeText);
+
+            //if (error != null)
+            //    MessageBox.Show(error);
         }
 
         private bool CheckEndLine(char next)
@@ -1576,7 +1742,6 @@ namespace CCodeEditorLib
             if (k - i > 1)
                 i = --k;
 
-
             return e;
         }
 
@@ -1584,6 +1749,42 @@ namespace CCodeEditorLib
         {
             for (int k = 0; k < startcolumn * 4; k++)
                 t[j++] = ' ';
+        }
+
+        private void TbxCode_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            CheckScrollBarVisibility();
+        }
+
+        private void TbxCode_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            SetLineNumber();
+        }
+
+        public void Save(string fullpath)
+        {
+            try
+            {
+                File.WriteAllText(fullpath, Text);
+            }
+            catch { }
+        }
+
+        public void Open(string fullpath)
+        {
+            try
+            {
+                if (File.Exists(fullpath))
+                {
+                    if (System.IO.Path.GetExtension(fullpath).ToLower() == "xml")
+                        InputCodeType = EditorCodeType.XML;
+                    else
+                        InputCodeType = EditorCodeType.CSharp;
+
+                    Text = File.ReadAllText(fullpath);
+                }
+            }
+            catch { }
         }
     }
 }

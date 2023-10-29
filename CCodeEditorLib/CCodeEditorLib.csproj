@@ -13,6 +13,7 @@
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WarningLevel>4</WarningLevel>
     <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -34,6 +35,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Numerics" />
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Core" />
@@ -48,9 +50,33 @@
     <Reference Include="PresentationFramework" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\..\..\PROGRAM\OpenGL\Codeart3D\Codeart3D\Codeart3D\Codeart3D Editor\Model\Asset.cs">
+      <Link>CSharp\Asset.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\PROGRAM\OpenGL\Codeart3D\Codeart3D\Codeart3D\Codeart3D Editor\Model\FunctionProperty.cs">
+      <Link>CSharp\FunctionProperty.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\PROGRAM\OpenGL\Codeart3D\Codeart3D\Codeart3D\Codeart3D Editor\Source\Enums.cs">
+      <Link>CSharp\Enums.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\PROGRAM\OpenGL\Codeart3D\Codeart3D\Codeart3D\Codeart3D Editor\Source\Property.cs">
+      <Link>CSharp\Property.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\PROGRAM\OpenGL\Codeart3D\Codeart3D\Codeart3D\Codeart3D Editor\Source\TagClass.cs">
+      <Link>CSharp\TagClass.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\PROGRAM\OpenGL\Codeart3D\Codeart3D\Codeart3D\Codeart3D Editor\Source\UsageReference.cs">
+      <Link>CSharp\UsageReference.cs</Link>
+    </Compile>
     <Compile Include="CodeEditor.xaml.cs">
       <DependentUpon>CodeEditor.xaml</DependentUpon>
     </Compile>
+    <Compile Include="CSharp\Class.cs" />
+    <Compile Include="CSharp\Command.cs" />
+    <Compile Include="CSharp\Expertion.cs" />
+    <Compile Include="CSharp\Condition.cs" />
+    <Compile Include="CSharp\Function.cs" />
+    <Compile Include="CSharp\Variable.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -64,6 +90,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <Compile Include="CSharp\CSharpParser.cs" />
     <Compile Include="Source\Keyword.cs" />
     <Compile Include="Source\KeywordClass.cs" />
     <Compile Include="Source\LType.cs" />
@@ -78,6 +105,7 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include="app.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

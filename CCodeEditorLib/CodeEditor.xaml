@@ -17,25 +17,24 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="35"/>
+                <ColumnDefinition Width="40"/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="#222222"/>
             <Border Grid.Column="1" Background="#272727"/>
 
-            <Grid>
+            <Grid Name="griLine">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="20"/>
                     <ColumnDefinition/>
+                    <ColumnDefinition Width="10"/>
                 </Grid.ColumnDefinitions>
-
-                <TextBlock VerticalAlignment="Stretch" TextAlignment="Center" Text="1" FontSize="13" Foreground="#55cccc" Margin="0,5" Name="tbkLineNo"/>
             </Grid>
 
-            <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5" 
-                     AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown"
-                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsUndoEnabled="False" SelectionChanged="TbxCode_SelectionChanged">
+            <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5" FontFamily="Consolas"
+                     AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown" SizeChanged="TbxCode_SizeChanged"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsUndoEnabled="False" SelectionChanged="TbxCode_SelectionChanged"
+                         ScrollViewer.ScrollChanged="TbxCode_ScrollChanged">
                 <RichTextBox.Resources>
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0"/>

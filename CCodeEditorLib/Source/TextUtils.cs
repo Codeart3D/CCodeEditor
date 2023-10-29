@@ -200,6 +200,60 @@ namespace CCodeEditorLib.Source
             return s;
         }
 
+        internal static string GetStringBetweenParanteses(string s, out int lastindex)
+        {
+            int i = 0;
+            int p = 0;
+            int c = 0;
+            char[] result = new char[500];
+
+            for (; i < s.Length; i++)
+            {
+                if (s[i] == '(')
+                    p++;
+                else if (s[i] == ')')
+                {
+                    p--;
+
+                    if (p != 0)
+                        result[c++] = s[i];
+                    else
+                        break;
+                }
+                else if (p > 0)
+                    result[c++] = s[i];
+            }
+
+            lastindex = ++i;
+            return new string(result, 0, c);
+        }
+
+        internal static string GetStringBetweenAqulad(string s)
+        {
+            int p = 0;
+            int c = 0;
+            char[] result = new char[10000];
+
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] == '{')
+                    p++;
+                else if (s[i] == '}')
+                {
+                    p--;
+
+                    if (p != 0)
+                        result[c++] = s[i];
+                    else
+                        break;
+                }
+                else if (p > 0)
+                    result[c++] = s[i];
+            }
+
+            return new string(result, 0, c);
+        }
+
         internal static string GetPreCharacter(RichTextBox rtx)
         {
             TextPointer caretPos = rtx.CaretPosition;
