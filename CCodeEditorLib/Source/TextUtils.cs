@@ -11,9 +11,9 @@ using System.Windows.Media;
 
 namespace CCodeEditorLib.Source
 {
-    internal static class TextUtils
+    public static class TextUtils
     {
-        internal static void FindAndReplace(this RichTextBox richTextBox, string text, Brush highlight, string replace = null)
+        public static void FindAndReplace(this RichTextBox richTextBox, string text, Brush highlight, string replace = null)
         {
             int idx1 = 0;
             int idx2 = 0;
@@ -131,7 +131,10 @@ namespace CCodeEditorLib.Source
             TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
             TextRange range = new TextRange(start, end);
             range.Text = "";
-            rtb.CaretPosition = start.GetPositionAtOffset(-2, LogicalDirection.Forward);
+            TextPointer tp = start.GetPositionAtOffset(-2, LogicalDirection.Forward);
+
+            if (tp != null)
+                rtb.CaretPosition = tp;
         }
 
         public static void InsertEmptyLine(RichTextBox rtb)
@@ -163,7 +166,7 @@ namespace CCodeEditorLib.Source
             return 0;
         }
 
-        internal static List<string> SplitAndKeepDelimiters(this string s, params char[] delimiters)
+        public static List<string> SplitAndKeepDelimiters(this string s, params char[] delimiters)
         {
             var parts = new List<string>();
 
@@ -192,7 +195,7 @@ namespace CCodeEditorLib.Source
             return parts;
         }
 
-        internal static string GetStringBetweenTwoChar(string s, char first, char last)
+        public static string GetStringBetweenTwoChar(string s, char first, char last)
         {
             s = s.Substring(s.IndexOf(first) + 1);
             s = s.Substring(0, s.IndexOf(last));
@@ -200,7 +203,7 @@ namespace CCodeEditorLib.Source
             return s;
         }
 
-        internal static string GetStringBetweenParanteses(string s, out int lastindex)
+        public static string GetStringBetweenParanteses(string s, out int lastindex)
         {
             int i = 0;
             int p = 0;
@@ -228,7 +231,7 @@ namespace CCodeEditorLib.Source
             return new string(result, 0, c);
         }
 
-        internal static string GetStringBetweenAqulad(string s)
+        public static string GetStringBetweenAqulad(string s)
         {
             int p = 0;
             int c = 0;
@@ -254,7 +257,7 @@ namespace CCodeEditorLib.Source
             return new string(result, 0, c);
         }
 
-        internal static string GetPreCharacter(RichTextBox rtx)
+        public static string GetPreCharacter(RichTextBox rtx)
         {
             TextPointer caretPos = rtx.CaretPosition;
             TextPointer pre = caretPos.GetPositionAtOffset(-1, LogicalDirection.Forward);
@@ -262,7 +265,7 @@ namespace CCodeEditorLib.Source
             return new TextRange(caretPos, pre).Text;
         }
 
-        internal static string FindCurrentXmlTag(RichTextBox rtx)
+        public static string FindCurrentXmlTag(RichTextBox rtx)
         {
             TextPointer caretPos = rtx.CaretPosition;
             TextPointer start = caretPos.GetLineStartPosition(0);
@@ -318,7 +321,7 @@ namespace CCodeEditorLib.Source
             //rtx.Selection.Select(start, start);
         }
 
-        internal static string FindCurrentXmlTag(string line)
+        public static string FindCurrentXmlTag(string line)
         {
             int lindex = -1;
 

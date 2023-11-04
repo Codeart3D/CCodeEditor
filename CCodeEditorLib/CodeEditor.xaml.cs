@@ -1,6 +1,4 @@
-﻿using CCodeEditorLib.CSharp;
-using CCodeEditorLib.Source;
-using Codeart3D_Editor.Model;
+﻿using CCodeEditorLib.Source;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -48,6 +46,7 @@ namespace CCodeEditorLib
         private string CodeText;
         private TextBlock[] textBlocks = new TextBlock[100];
         private char[] Delimiters;
+        private char[] FindDelimiters = new char[] { ' ', '<', '>', '{', '}', '[', ']', '(', ')', ',', '.' };
         private char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';' };
         private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
 
@@ -57,6 +56,7 @@ namespace CCodeEditorLib
         private DispatcherTimer Timer;
         private DispatcherTimer XmlTimer = null;
 
+        private SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
         private SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
         private SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(60, 150, 150));
 
@@ -69,6 +69,9 @@ namespace CCodeEditorLib
         // Event
         public delegate void XMLChangedHandler(object sender, string Xml);
         public event XMLChangedHandler XmlChanged;
+
+        public delegate void CodeEditorTextReplace(CodeEditor editor);
+        public static event CodeEditorTextReplace RequestToReplaceText;
 
         public event TextChangedEventHandler TextChanged;
 
@@ -109,7 +112,8 @@ namespace CCodeEditorLib
             }
         }
 
-        public bool IsReadOnly { get { return tbxCode.IsReadOnly; } set { tbxCode.IsReadOnly = value; } }
+        public string Caption { get { return tbkCaption.Text; } set { tbkCaption.Text = value; } }
+        public bool IsReadOnly { get { return tbxCode.IsReadOnly; } set { tbxCode.IsReadOnly = value; tbxCode.Opacity = value ? 0.6 : 1.0; } }
 
         public void Clear()
         {
@@ -133,11 +137,6 @@ namespace CCodeEditorLib
                 textBlocks[i] = new TextBlock() { Margin = new Thickness(0, 0, 0, 0), TextAlignment = TextAlignment.Right, FontSize = 13, Foreground = LineNumberColor };
                 griLine.Children.Add(textBlocks[i]);
             }
-        }
-
-        public static void SetClasses(List<FunctionProperty> funcs, List<Asset> Objects)
-        {
-            CSharpParser.SetClasses(funcs, Objects);
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
@@ -209,9 +208,8 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(MainKeywordBrush, "null"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "true"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "false"));
-
-                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "String", KeywordType.Class));
-                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "Control", KeywordType.Enum));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "public"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "object"));
                 }
                 else if (value == EditorCodeType.Shader)
                 {
@@ -254,7 +252,7 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "sampler2D"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "texture2D"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_Position"));
-                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FragColor"));                    
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FragColor"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FragCoord"));
 
                     Keywords.Add(new Keyword(Brushes.HotPink, "#define"));
@@ -304,6 +302,11 @@ namespace CCodeEditorLib
                     }
                 }
             }
+        }
+
+        public void AddCSharpClassKeyword(string ClassKey)
+        {
+            Keywords.Add(new Keyword(Brushes.LightSeaGreen, ClassKey, KeywordType.Class));
         }
 
         public void SetXmlRoot(KeywordClass root)
@@ -1167,6 +1170,8 @@ namespace CCodeEditorLib
                     if (UndoRedoShortcutKey)
                         Redo();
                 }
+                else if (e.Key == Key.F)
+                    DisplayFindPane();
 
                 popSuggestion.IsOpen = false;
                 lstKeyword.Items.Filter = null;
@@ -1202,8 +1207,23 @@ namespace CCodeEditorLib
                 }
                 else if (e.Key == Key.Enter)
                     e.Handled = SelectSuggestion();
-                else if (e.Key == Key.Right || e.Key == Key.Left || e.Key == Key.Escape)
+                else if (e.Key == Key.Right || e.Key == Key.Left)
                     popSuggestion.IsOpen = false;
+                else if (e.Key == Key.F3)
+                    SearchText();
+                else if (e.Key == Key.Escape)
+                {
+                    if (popSuggestion.IsOpen)
+                    {
+                        popSuggestion.IsOpen = false;
+                        e.Handled = true;
+                    }
+                    else if (borFind.Visibility == Visibility.Visible)
+                    {
+                        ExitSearch();
+                        e.Handled = true;
+                    }
+                }
                 else
                     CaptureInput(e.Key);
             }
@@ -1457,6 +1477,11 @@ namespace CCodeEditorLib
                 int nex = i + 1;
 
                 char curc = code[i];
+
+                // skip space at begin of line for prevent extra gap
+                if (curc == ' ' && precs == '\n')
+                    continue;
+
                 char prec = '\0'; // prev character with space 
                 char nexc = '\0'; // next character with space
 
@@ -1547,12 +1572,13 @@ namespace CCodeEditorLib
                     startcolumn--;
                     InsertGap(ncode, ref j, startcolumn);
 
-                    if (precs != '\n')
+                    if (precs != '\n' && precs != '\0')
                         ncode[j++] = '\n';
 
                     ncode[j++] = '}';
 
-                    if (nextcs != '\r')
+                    // check ';' for do while and struct for ';' display after '}'
+                    if (nextcs != '\r' && nexc != ';')
                         ncode[j++] = '\n';
 
                     precs = ncode[j - 1];
@@ -1563,6 +1589,9 @@ namespace CCodeEditorLib
                     precs = '\n';
                     ncode[j++] = '\n';
                     // insert gap in begin of line
+                    // for 'else' word
+                    if (preword == "else")
+                        keyword_seen = true;
                 }
                 else if (curc == ' ')
                 {
@@ -1626,7 +1655,8 @@ namespace CCodeEditorLib
                                     ncode[j++] = ')';
 
                                     // end of functions
-                                    if (nexc != ';')
+                                    // call class member with '.'
+                                    if (nexc != ';' && nexc != '.')
                                     {
                                         ncode[j++] = '\n';
                                         InsertGap(ncode, ref j, startcolumn + 1);
@@ -1747,7 +1777,9 @@ namespace CCodeEditorLib
 
         private void InsertGap(char[] t, ref int j, int startcolumn)
         {
-            for (int k = 0; k < startcolumn * 4; k++)
+            int count = startcolumn * 4;
+
+            for (int k = 0; k < count; k++)
                 t[j++] = ' ';
         }
 
@@ -1785,6 +1817,180 @@ namespace CCodeEditorLib
                 }
             }
             catch { }
+        }
+
+        private void BtnClearError_Click(object sender, RoutedEventArgs e)
+        {
+            tbkError.Text = null;
+            rowError.Height = new GridLength(0, GridUnitType.Auto);
+        }
+
+        private void SearchText(string text = null, bool casesensitive = false, bool single = false)
+        {
+            Editing = true;
+
+            if (text == null)
+                text = GetCurrentString();
+
+            if (!casesensitive)
+                text = text.ToLower();
+
+            ClearSearchMark();
+
+            for (int j = 0; j < tbxCode.Document.Blocks.Count; j++)
+            {
+                Paragraph item = tbxCode.Document.Blocks.ElementAt(j) as Paragraph;
+
+                for (int i = 0; i < item.Inlines.Count; i++)
+                {
+                    int k = 0;
+                    Run run = item.Inlines.ElementAt(i) as Run;
+
+                    if (casesensitive)
+                    {
+                        while ((k = run.Text.IndexOf(text, k)) != -1)
+                        {
+                            if (single)
+                            {
+                                if (k > 0)
+                                {
+                                    if (Char.IsLetterOrDigit(run.Text[k - 1]))
+                                    {
+                                        k += text.Length;
+                                        continue;
+                                    }
+                                }
+
+                                if (k + text.Length < run.Text.Length - 1)
+                                {
+                                    if (Char.IsLetterOrDigit(run.Text[k + text.Length]))
+                                    {
+                                        k += text.Length;
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            TextPointer start = run.ContentStart.GetPositionAtOffset(k);
+                            TextPointer end = start.GetPositionAtOffset(text.Length);
+                            new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, FindMarkBrush);
+                            k += text.Length;
+
+                            if (k >= run.Text.Length)
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        while ((k = run.Text.ToLower().IndexOf(text, k)) != -1)
+                        {
+                            if (single)
+                            {
+                                if (k > 0)
+                                {
+                                    if (Char.IsLetterOrDigit(run.Text[k - 1]))
+                                    {
+                                        k += text.Length;
+                                        continue;
+                                    }
+                                }
+
+                                if (k + text.Length < run.Text.Length - 1)
+                                {
+                                    if (Char.IsLetterOrDigit(run.Text[k + text.Length]))
+                                    {
+                                        k += text.Length;
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            TextPointer start = run.ContentStart.GetPositionAtOffset(k);
+                            TextPointer end = start.GetPositionAtOffset(text.Length);
+                            new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, FindMarkBrush);
+                            k += text.Length;
+
+                            if (k >= run.Text.Length)
+                                break;
+                        }
+                    }
+                }
+            }
+
+            Editing = false;
+        }
+
+        public int TextReplace()
+        {
+            return ReplaceText(tbxFind.Text, tbxReplace.Text);
+        }
+
+        private int ReplaceText(string text, string replace)        {            int matches = 0;
+            // call this function for recrate runs
+            ClearSearchMark();            for (int j = 0; j < tbxCode.Document.Blocks.Count; j++)            {                Paragraph item = tbxCode.Document.Blocks.ElementAt(j) as Paragraph;                for (int i = 0; i < item.Inlines.Count; i++)                {                    int k = 0;                    Run run = item.Inlines.ElementAt(i) as Run;                    while ((k = run.Text.IndexOf(text, k)) != -1)                    {                        TextPointer start = run.ContentStart.GetPositionAtOffset(k);                        TextPointer end = start.GetPositionAtOffset(text.Length);                        new TextRange(start, end).Text = replace;                        k += text.Length;                        matches++;                        if (k >= run.Text.Length)                            break;                    }                }            }            return matches;        }
+
+        private string GetCurrentString()
+        {
+            TextPointer start = tbxCode.CaretPosition;
+            string text = start.GetTextInRun(LogicalDirection.Backward)?.Split(FindDelimiters).LastOrDefault();
+            text += start.GetTextInRun(LogicalDirection.Forward)?.Split(FindDelimiters).FirstOrDefault();
+
+            return text;
+        }
+
+        private void ClearSearchMark()
+        {
+            new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
+        }
+
+        public void DisplayFindPane()
+        {
+            borFind.Visibility = Visibility.Visible;
+
+            if (string.IsNullOrEmpty(tbxFind.Text))
+                tbxFind.Text = GetCurrentString();
+        }
+
+        private void btnFind_Click(object sender, RoutedEventArgs e)
+        {
+            FindText();
+        }
+
+        private void FindText()
+        {
+            if (!string.IsNullOrWhiteSpace(tbxFind.Text))
+                SearchText(tbxFind.Text, btnCaseSensitive.IsChecked == true, btnSingleWord.IsChecked == true);
+        }
+
+        private void btnReplace_Click(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(tbxFind.Text))
+                RequestToReplaceText?.Invoke(this);
+        }
+
+        private void btnClose_Click(object sender, RoutedEventArgs e)
+        {
+            ExitSearch();
+        }
+
+        private void ExitSearch()
+        {
+            ClearSearchMark();
+            borFind.Visibility = Visibility.Collapsed;
+        }
+
+        private void tbxFind_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                FindText();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                ExitSearch();
+                e.Handled = true;
+            }
         }
     }
 }

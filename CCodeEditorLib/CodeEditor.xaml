@@ -6,11 +6,18 @@
              xmlns:local="clr-namespace:CCodeEditorLib"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800" Loaded="UserControl_Loaded">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <FontFamily x:Key="Consolas">Consolas</FontFamily>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"/>
             <RowDefinition/>
-            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto" Name="rowError"/>
         </Grid.RowDefinitions>
 
         <Border Background="#333" Height="1"/>
@@ -31,10 +38,10 @@
                 </Grid.ColumnDefinitions>
             </Grid>
 
-            <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5" FontFamily="Consolas"
+            <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5"
                      AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown" SizeChanged="TbxCode_SizeChanged"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsUndoEnabled="False" SelectionChanged="TbxCode_SelectionChanged"
-                         ScrollViewer.ScrollChanged="TbxCode_ScrollChanged">
+                         ScrollViewer.ScrollChanged="TbxCode_ScrollChanged" FontFamily="{StaticResource Consolas}">
                 <RichTextBox.Resources>
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0"/>
@@ -45,6 +52,55 @@
                     <SolidColorBrush Color="White"/>
                 </RichTextBox.CaretBrush>
             </RichTextBox>
+
+            <TextBlock Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="15,10" Name="tbkCaption" FontSize="10" FontWeight="Bold" Opacity="0.3"/>
+
+            <Border Grid.Column="1" Width="280" Height="80" Background="#272727" HorizontalAlignment="Right" CornerRadius="3"
+                VerticalAlignment="Top" BorderThickness="1" BorderBrush="#151515" x:Name="borFind" Visibility="Collapsed" Margin="2">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="10" Direction="225" Color="#555"/>
+                </Border.Effect>
+
+                <Grid Margin="15,0" VerticalAlignment="Center">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="3"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="3"/>
+                        <RowDefinition Height="auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="3"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="3"/>
+                        <ColumnDefinition Width="20"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Stretch" Height="20" Name="tbxFind" PreviewKeyDown="tbxFind_PreviewKeyDown"/>
+
+                    <Button Grid.Row="0" Grid.Column="2" Width="20" Height="20" Name="btnFind" Click="btnFind_Click">
+                        <Image Source="../Image/SearchSmall.png" Width="13" Height="13"/>
+                    </Button>
+                    <Button Grid.Row="0" Grid.Column="4" Width="20" Height="20" Name="btnClose" Click="btnClose_Click">
+                        <Image Source="../Image/Close.png" Width="8" Height="8"/>
+                    </Button>
+
+                    <TextBox Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Stretch" Height="20" Name="tbxReplace"/>
+                    <Button Grid.Row="2" Grid.Column="2" Content="R" Width="20" Height="20" FontWeight="Medium" Name="btnReplace" Foreground="Gainsboro" Click="btnReplace_Click"/>
+
+                    <Grid Grid.Row="4" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto"/>
+                            <ColumnDefinition Width="3"/>
+                            <ColumnDefinition Width="auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ToggleButton Grid.Column="0" Content="Aa" Width="17" Height="17" FontSize="9" FontWeight="Medium" Foreground="Gainsboro" Name="btnCaseSensitive"/>
+                        <ToggleButton Grid.Column="2" Content="|T|" Width="17" Height="17" FontSize="9" FontWeight="Medium" Foreground="Gainsboro" Name="btnSingleWord"/>
+                    </Grid>
+                </Grid>
+            </Border>
 
             <Popup Grid.Column="1" Width="150" Height="auto" MaxHeight="200" MinHeight="50" StaysOpen="False" IsOpen="False" Name="popSuggestion" Placement="AbsolutePoint">
                 <ListBox Background="#222" BorderThickness="1" BorderBrush="#111" Name="lstKeyword" HorizontalContentAlignment="Stretch" SelectionChanged="LstKeyword_SelectionChanged">
@@ -67,9 +123,20 @@
         </Grid>
 
         <Border Grid.Row="2" Background="#222" BorderThickness="0,1,0,0" BorderBrush="#333">
-                <TextBox Text="Error(s) : " Foreground="IndianRed" Margin="5" Height="40" Visibility="Visible" Name="tbkError" IsReadOnly="True" 
-                         HorizontalAlignment="Left" VerticalAlignment="Top" BorderThickness="0" BorderBrush="Transparent" Background="Transparent" 
+            <Grid MinHeight="30">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="30"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Foreground="IndianRed" Margin="2" Width="auto" Height="auto" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Name="tbkError" IsReadOnly="True" 
+                         BorderThickness="0" BorderBrush="Transparent" Background="Transparent" 
                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" TextWrapping="WrapWithOverflow"/>
+
+                <Button Grid.Column="1" Width="20" Height="20" Content="_" VerticalAlignment="Top" Margin="5" Background="Transparent" Name="btnClearError" Click="BtnClearError_Click"/>
+            </Grid>
         </Border>
+
+        <GridSplitter ResizeDirection="Rows" Grid.Row="2" Height="2" HorizontalAlignment="Stretch" VerticalAlignment="Top"/>
     </Grid>
 </UserControl>
