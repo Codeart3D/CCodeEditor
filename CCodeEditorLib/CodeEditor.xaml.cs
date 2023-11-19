@@ -58,7 +58,10 @@ namespace CCodeEditorLib
 
         private SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
         private SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
-        private SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(60, 150, 150));
+        private SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(120, 120, 120));
+        private SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
+        private SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
+        // 230, 200, 150 cream gold
 
         public Visibility DisplayErrorSection { get { return tbkError.Visibility; } set { tbkError.Visibility = value; } }
         public string Error { get { return tbkError.Text; } set { tbkError.Text = value; } }
@@ -307,6 +310,21 @@ namespace CCodeEditorLib
         public void AddCSharpClassKeyword(string ClassKey)
         {
             Keywords.Add(new Keyword(Brushes.LightSeaGreen, ClassKey, KeywordType.Class));
+        }
+
+        public void AddCSharpEnumKeyword(string EnumKey)
+        {
+            Keywords.Add(new Keyword(EnumColor, EnumKey, KeywordType.Enum));
+        }
+
+        public void ClearVariableKeywords()
+        {
+            Keywords.RemoveAll(p => p.Type == KeywordType.Variable);
+        }
+
+        public void AddCSharpVariableKeyword(string VariableKey)
+        {
+            Keywords.Add(new Keyword(VariableColor, VariableKey, KeywordType.Variable));
         }
 
         public void SetXmlRoot(KeywordClass root)
@@ -1925,9 +1943,37 @@ namespace CCodeEditorLib
             return ReplaceText(tbxFind.Text, tbxReplace.Text);
         }
 
-        private int ReplaceText(string text, string replace)        {            int matches = 0;
+        private int ReplaceText(string text, string replace)
+        {
+            int matches = 0;
             // call this function for recrate runs
-            ClearSearchMark();            for (int j = 0; j < tbxCode.Document.Blocks.Count; j++)            {                Paragraph item = tbxCode.Document.Blocks.ElementAt(j) as Paragraph;                for (int i = 0; i < item.Inlines.Count; i++)                {                    int k = 0;                    Run run = item.Inlines.ElementAt(i) as Run;                    while ((k = run.Text.IndexOf(text, k)) != -1)                    {                        TextPointer start = run.ContentStart.GetPositionAtOffset(k);                        TextPointer end = start.GetPositionAtOffset(text.Length);                        new TextRange(start, end).Text = replace;                        k += text.Length;                        matches++;                        if (k >= run.Text.Length)                            break;                    }                }            }            return matches;        }
+            ClearSearchMark();
+
+            for (int j = 0; j < tbxCode.Document.Blocks.Count; j++)
+            {
+                Paragraph item = tbxCode.Document.Blocks.ElementAt(j) as Paragraph;
+
+                for (int i = 0; i < item.Inlines.Count; i++)
+                {
+                    int k = 0;
+                    Run run = item.Inlines.ElementAt(i) as Run;
+
+                    while ((k = run.Text.IndexOf(text, k)) != -1)
+                    {
+                        TextPointer start = run.ContentStart.GetPositionAtOffset(k);
+                        TextPointer end = start.GetPositionAtOffset(text.Length);
+                        new TextRange(start, end).Text = replace;
+                        k += text.Length;
+                        matches++;
+
+                        if (k >= run.Text.Length)
+                            break;
+                    }
+                }
+            }
+
+            return matches;
+        }
 
         private string GetCurrentString()
         {

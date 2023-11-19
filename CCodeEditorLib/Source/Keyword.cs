@@ -14,6 +14,7 @@ namespace CCodeEditorLib.Source
         Struct,
         Class,
         Method,
+        Variable,
         XMLTag,
         XMLEndTag,
         XMLStart,

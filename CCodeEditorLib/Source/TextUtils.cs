@@ -203,32 +203,12 @@ namespace CCodeEditorLib.Source
             return s;
         }
 
-        public static string GetStringBetweenParanteses(string s, out int lastindex)
+        public static string GetStringBetweenParanteses(string str, out int lastindex)
         {
-            int i = 0;
-            int p = 0;
-            int c = 0;
-            char[] result = new char[500];
+            int s = str.IndexOf('(') + 1;
+            lastindex = str.LastIndexOf(')');
 
-            for (; i < s.Length; i++)
-            {
-                if (s[i] == '(')
-                    p++;
-                else if (s[i] == ')')
-                {
-                    p--;
-
-                    if (p != 0)
-                        result[c++] = s[i];
-                    else
-                        break;
-                }
-                else if (p > 0)
-                    result[c++] = s[i];
-            }
-
-            lastindex = ++i;
-            return new string(result, 0, c);
+            return str.Substring(s, lastindex - s);
         }
 
         public static string GetStringBetweenAqulad(string s)
