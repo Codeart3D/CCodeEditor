@@ -208,6 +208,9 @@ namespace CCodeEditorLib.Source
             int s = str.IndexOf('(') + 1;
             lastindex = str.LastIndexOf(')');
 
+            if (s == -1 || lastindex == -1)
+                return null;
+
             return str.Substring(s, lastindex - s);
         }
 

@@ -31,7 +31,7 @@
             <Border Grid.Column="0" Background="#222222"/>
             <Border Grid.Column="1" Background="#272727"/>
 
-            <Grid Name="griLine">
+            <Grid Name="griLine" ClipToBounds="True">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
                     <ColumnDefinition Width="10"/>

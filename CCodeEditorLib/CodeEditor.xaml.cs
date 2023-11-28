@@ -58,7 +58,7 @@ namespace CCodeEditorLib
 
         private SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
         private SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
-        private SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(120, 120, 120));
+        private SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(80, 170, 160));
         private SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
         private SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
         // 230, 200, 150 cream gold
@@ -109,6 +109,7 @@ namespace CCodeEditorLib
 
                     TextChecking();
                     SetLineNumber();
+                    CheckScrollBarVisibility();
 
                     Editing = false;
                 }
@@ -204,7 +205,9 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(MainKeywordBrush, "else"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "foreach"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "for"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "while"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "var"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "in"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "return"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "continue"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "break"));
@@ -465,11 +468,19 @@ namespace CCodeEditorLib
 
         private void CheckScrollBarVisibility()
         {
-            if (CodeText != null && IsLoaded)
+            if (IsLoaded)
             {
-                FormattedText ft = new FormattedText(CodeText, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface, tbxCode.FontSize, Brushes.Black);
-                tbxCode.Document.PageWidth = ft.Width + 12;
-                tbxCode.HorizontalScrollBarVisibility = (tbxCode.ActualWidth < tbxCode.Document.PageWidth) ? ScrollBarVisibility.Visible : ScrollBarVisibility.Hidden;
+                if (CodeText != null)
+                {
+                    FormattedText ft = new FormattedText(CodeText, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface, tbxCode.FontSize, Brushes.Black);
+                    tbxCode.Document.PageWidth = ft.Width + 12;
+                    tbxCode.HorizontalScrollBarVisibility = (tbxCode.ActualWidth < tbxCode.Document.PageWidth) ? ScrollBarVisibility.Visible : ScrollBarVisibility.Hidden;
+                }
+                else
+                {
+                    tbxCode.Document.PageWidth = this.ActualWidth - 20;
+                    tbxCode.HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden;
+                }
             }
         }
 
