@@ -53,8 +53,8 @@ namespace CCodeEditorLib
         private Stack<string> UndoStack = new Stack<string>();
         private Stack<string> RedoStack = new Stack<string>();
 
-        private DispatcherTimer Timer;
-        private DispatcherTimer XmlTimer = null;
+        private DispatcherTimer Timer; // set line numbers and code color and ...
+        private DispatcherTimer CodeTimer = null; // for format code
 
         private SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
         private SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
@@ -66,7 +66,7 @@ namespace CCodeEditorLib
         public Visibility DisplayErrorSection { get { return tbkError.Visibility; } set { tbkError.Visibility = value; } }
         public string Error { get { return tbkError.Text; } set { tbkError.Text = value; } }
         public bool CheckXmlError { get; set; }
-        public bool IsEnableXmlFormatter { get; set; }
+        public bool IsEnableCodeFormatter { get; set; } = false;
         public bool UndoRedoShortcutKey { get; set; } = true;
 
         // Event
@@ -104,6 +104,9 @@ namespace CCodeEditorLib
                         CodeText = Source.XMLParser.FormatXml(value);
                     else
                         CodeText = value;
+
+                    if (value == null)
+                        CodeText = "";
 
                     Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
@@ -149,14 +152,11 @@ namespace CCodeEditorLib
             {
                 InitOnce = true;
 
-                if (InputCodeType == EditorCodeType.XML)
+                if (IsEnableCodeFormatter)
                 {
-                    if (IsEnableXmlFormatter)
-                    {
-                        XmlTimer = new DispatcherTimer();
-                        XmlTimer.Interval = new TimeSpan(0, 0, 10);
-                        XmlTimer.Tick += XmlTimer_Tick;
-                    }
+                    CodeTimer = new DispatcherTimer();
+                    CodeTimer.Interval = new TimeSpan(0, 0, 10);
+                    CodeTimer.Tick += CodeTimer_Tick;
                 }
 
                 LType lt = new LType("var", KeywordType.Main);
@@ -364,13 +364,18 @@ namespace CCodeEditorLib
             return atts;
         }
 
-        private void XmlTimer_Tick(object sender, EventArgs e)
+        private void CodeTimer_Tick(object sender, EventArgs e)
         {
             try
             {
                 Timer.Stop();
-                XmlTimer.Stop();
-                XmlFormat();
+                CodeTimer.Stop();
+
+                if (InputCodeType == EditorCodeType.XML)
+                    XmlFormat();
+                else if (InputCodeType == EditorCodeType.CSharp)
+                    FormatCode();
+
                 CheckScrollBarVisibility();
             }
             catch { }
@@ -456,10 +461,10 @@ namespace CCodeEditorLib
                 Timer.Stop();
                 Timer.Start();
 
-                if (InputCodeType == EditorCodeType.XML && IsEnableXmlFormatter)
+                if (IsEnableCodeFormatter)
                 {
-                    XmlTimer.Stop();
-                    XmlTimer.Start();
+                    CodeTimer.Stop();
+                    CodeTimer.Start();
                 }
 
                 TextChanged?.Invoke(sender, e);

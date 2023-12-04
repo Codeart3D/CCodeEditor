@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
@@ -126,12 +127,16 @@ namespace CCodeEditorLib.Source
 
         public static void DeleteCurrentLine(RichTextBox rtb)
         {
+            Rect rect = rtb.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
+            Point point = new Point(rect.X, rect.Y);
+
             TextPointer caretPos = rtb.CaretPosition;
             TextPointer start = caretPos.GetLineStartPosition(0);
             TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
             TextRange range = new TextRange(start, end);
             range.Text = "";
-            TextPointer tp = start.GetPositionAtOffset(-2, LogicalDirection.Forward);
+
+            var tp = rtb.GetPositionFromPoint(point, true);
 
             if (tp != null)
                 rtb.CaretPosition = tp;
