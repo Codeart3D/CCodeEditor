@@ -106,6 +106,24 @@ namespace CCodeEditorLib.Source
             range.Text = replace;
         }
 
+        public static void GoAtTheBeginOfLine(RichTextBox rtb)
+        {
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+            TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
+            string line = new TextRange(start, end).Text;
+            int tlen = line.Length;
+            int forward = tlen - line.TrimStart().Length;
+
+            if (forward != tlen)
+            {
+                rtb.CaretPosition = start;
+
+                for (int i = 0; i < forward; i++)
+                    rtb.CaretPosition = rtb.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+            }
+        }
+
         public static string GetLineText(RichTextBox rtb)
         {
             TextPointer caretPos = rtb.CaretPosition;

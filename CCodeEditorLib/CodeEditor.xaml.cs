@@ -241,6 +241,7 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(MainKeywordBrush, "in"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "out"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "inout"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "const"));
 
                     Keywords.Add(new Keyword(MainKeywordBrush, "uniform"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "varying"));
@@ -252,6 +253,9 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "vec2"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "vec3"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "vec4"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "ivec2"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "ivec3"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "ivec4"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat2"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat3"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat4"));
@@ -1258,6 +1262,11 @@ namespace CCodeEditorLib
                         e.Handled = true;
                     }
                 }
+                else if (e.Key == Key.Home)
+                {
+                    TextUtils.GoAtTheBeginOfLine(tbxCode);
+                    e.Handled = true;
+                }
                 else
                     CaptureInput(e.Key);
             }
@@ -1870,6 +1879,7 @@ namespace CCodeEditorLib
                 text = text.ToLower();
 
             ClearSearchMark();
+            Editing = true; // must set true again because claar search change it
 
             for (int j = 0; j < tbxCode.Document.Blocks.Count; j++)
             {
@@ -2002,15 +2012,22 @@ namespace CCodeEditorLib
 
         private void ClearSearchMark()
         {
+            Editing = true;
             new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
+            Editing = false;
         }
 
         public void DisplayFindPane()
         {
             borFind.Visibility = Visibility.Visible;
 
-            if (string.IsNullOrEmpty(tbxFind.Text))
-                tbxFind.Text = GetCurrentString();
+            string fstr = GetCurrentString();
+
+            if (!string.IsNullOrEmpty(fstr))
+            {
+                tbxFind.Text = fstr;
+                FindText();
+            }
         }
 
         private void btnFind_Click(object sender, RoutedEventArgs e)
