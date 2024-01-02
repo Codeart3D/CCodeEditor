@@ -26,12 +26,15 @@ namespace CCodeEditorLib
     /// </summary>
     public partial class CodeEditor : UserControl
     {
+        private bool InSubSuggestion = false;
         private bool InitOnce = false;
         private bool Editing = false;
         private bool UndoAction = false;
         private bool Formated = false;
         private bool Checking = false;
+        private bool StartFormatCode = false;
         private int TagCounter = 0;
+        private int CaretPosLineFirstLen = 0;
         private string FilterWord = "";
         private Typeface Typeface;
         private Keyword CurrentKeyword;
@@ -47,7 +50,7 @@ namespace CCodeEditorLib
         private TextBlock[] textBlocks = new TextBlock[100];
         private char[] Delimiters;
         private char[] FindDelimiters = new char[] { ' ', '<', '>', '{', '}', '[', ']', '(', ')', ',', '.' };
-        private char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';' };
+        private char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';', '#' };
         private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
 
         private Stack<string> UndoStack = new Stack<string>();
@@ -55,6 +58,7 @@ namespace CCodeEditorLib
 
         private DispatcherTimer Timer; // set line numbers and code color and ...
         private DispatcherTimer CodeTimer = null; // for format code
+        private DispatcherTimer CaretPosTimer = null; // for format code
 
         private SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
         private SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
@@ -62,6 +66,8 @@ namespace CCodeEditorLib
         private SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
         private SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
         // 230, 200, 150 cream gold
+
+        public List<Keyword> SubSuggestions;
 
         public Visibility DisplayErrorSection { get { return tbkError.Visibility; } set { tbkError.Visibility = value; } }
         public string Error { get { return tbkError.Text; } set { tbkError.Text = value; } }
@@ -76,11 +82,14 @@ namespace CCodeEditorLib
         public delegate void CodeEditorTextReplace(CodeEditor editor);
         public static event CodeEditorTextReplace RequestToReplaceText;
 
+        public delegate void RestoreSuggestionList(string word);
+        public event RestoreSuggestionList UpdateSubSuggestionList;
+
         public event TextChangedEventHandler TextChanged;
 
         public enum EditorCodeType
         {
-            CSharp,
+            CODA,
             Shader,
             XML
         }
@@ -144,6 +153,8 @@ namespace CCodeEditorLib
                 textBlocks[i] = new TextBlock() { Margin = new Thickness(0, 0, 0, 0), TextAlignment = TextAlignment.Right, FontSize = 13, Foreground = LineNumberColor };
                 griLine.Children.Add(textBlocks[i]);
             }
+
+            DataObject.AddPastingHandler(tbxCode, OnPaste);
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
@@ -154,9 +165,16 @@ namespace CCodeEditorLib
 
                 if (IsEnableCodeFormatter)
                 {
-                    CodeTimer = new DispatcherTimer();
-                    CodeTimer.Interval = new TimeSpan(0, 0, 10);
-                    CodeTimer.Tick += CodeTimer_Tick;
+                    if (CodeType == EditorCodeType.XML)
+                    {
+                        CodeTimer = new DispatcherTimer();
+                        CodeTimer.Interval = new TimeSpan(0, 0, 10);
+                        CodeTimer.Tick += CodeTimer_Tick;
+                    }
+
+                    CaretPosTimer = new DispatcherTimer();
+                    CaretPosTimer.Interval = new TimeSpan(0, 0, 0, 0, 100);
+                    CaretPosTimer.Tick += CaretPosTimer_Tick;
                 }
 
                 LType lt = new LType("var", KeywordType.Main);
@@ -179,13 +197,44 @@ namespace CCodeEditorLib
                 bool res = syntax.Check("SetValue(10);");
 
                 Timer = new DispatcherTimer();
-                Timer.Interval = new TimeSpan(0, 0, 0, 0, 400);
+                Timer.Interval = new TimeSpan(0, 0, 0, 0, 100);
                 Timer.Tick += Timer_Tick;
 
                 lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
             }
 
             tbxCode.Focus();
+        }
+
+        private void CaretPosTimer_Tick(object sender, EventArgs e)
+        {
+            CaretPosTimer.Stop();
+
+            int sub = TextUtils.GetLineText(tbxCode).Length - CaretPosLineFirstLen;
+
+            if (sub > 0)
+            {
+                for (int i = 0; i < sub; i++)
+                    tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+            }
+            else
+            {
+                tbxCode.CaretPosition = TextUtils.GetEndOfCurrentLine(tbxCode.CaretPosition);
+                //    sub = -sub;
+
+                //    for (int i = 0; i < sub; i++)
+                //        tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+            }
+        }
+
+        private void OnPaste(object sender, DataObjectPastingEventArgs e)
+        {
+            // check is text
+            if (!e.SourceDataObject.GetDataPresent(DataFormats.UnicodeText, true))
+                return;
+
+            //var text = e.SourceDataObject.GetData(DataFormats.UnicodeText) as string;
+            StartFormatCode = true;
         }
 
         public EditorCodeType CodeType
@@ -197,7 +246,7 @@ namespace CCodeEditorLib
                 InputCodeType = value;
                 Keywords.Clear();
 
-                if (value == EditorCodeType.CSharp)
+                if (value == EditorCodeType.CODA)
                 {
                     Delimiters = CodeDelimiters;
 
@@ -377,7 +426,7 @@ namespace CCodeEditorLib
 
                 if (InputCodeType == EditorCodeType.XML)
                     XmlFormat();
-                else if (InputCodeType == EditorCodeType.CSharp)
+                else if (InputCodeType == EditorCodeType.CODA)
                     FormatCode();
 
                 CheckScrollBarVisibility();
@@ -396,6 +445,20 @@ namespace CCodeEditorLib
             // this methode must call after TextChecking because find childs indexes
             if (InputCodeType == EditorCodeType.XML && CheckXmlError)
                 XmlErrorChecking();
+
+            if (IsEnableCodeFormatter)
+            {
+                if (StartFormatCode)
+                {
+                    StartFormatCode = false;
+                    Format(); // use Format for scroll checking
+                }
+                else if (CodeType == EditorCodeType.XML)
+                {
+                    CodeTimer.Stop();
+                    CodeTimer.Start();
+                }
+            }
 
             Editing = false;
         }
@@ -464,12 +527,6 @@ namespace CCodeEditorLib
 
                 Timer.Stop();
                 Timer.Start();
-
-                if (IsEnableCodeFormatter)
-                {
-                    CodeTimer.Stop();
-                    CodeTimer.Start();
-                }
 
                 TextChanged?.Invoke(sender, e);
             }
@@ -560,11 +617,36 @@ namespace CCodeEditorLib
             return EndWord;
         }
 
-        private void DisplaySuggestionPopup()
+        private void DisplaySuggestionPopup(bool dot = false)
         {
             if (!popSuggestion.IsOpen)
             {
                 FindBeginOfWord();
+
+                if (dot && UpdateSubSuggestionList != null)
+                {
+                    FindEndOfWord();
+                    UpdateSubSuggestionList.Invoke(new TextRange(StartWord, EndWord).Text);
+
+                    //SubSuggestions = new List<Keyword>();
+                    //SubSuggestions.Add(new Keyword(Brushes.WhiteSmoke, "SetText", KeywordType.Method));
+
+                    if (SubSuggestions != null && SubSuggestions.Count > 0)
+                    {
+                        InSubSuggestion = true;
+                        lstKeyword.Items.Filter = null;
+                        lstKeyword.ItemsSource = null;
+                        lstKeyword.ItemsSource = SubSuggestions;
+                    }
+                }
+                else if (InSubSuggestion)
+                {
+                    InSubSuggestion = false;
+                    lstKeyword.Items.Filter = null;
+                    lstKeyword.ItemsSource = null;
+                    lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
+                }
+
                 Rect rect = StartWord.GetCharacterRect(LogicalDirection.Backward);
                 Point point = tbxCode.PointToScreen(rect.BottomRight);
                 popSuggestion.HorizontalOffset = point.X;
@@ -581,8 +663,14 @@ namespace CCodeEditorLib
         private void CollectXMLKeyword(int index, Paragraph paragraph)
         {
             int k = 0;
-            bool collect_string = false;
+            //bool collect_string = false;
             char[] word = new char[1024];
+
+            // collect color
+            Run RunColor = null;
+            int ccounter = 0;
+            bool collect_color = false;
+            char[] ColorValue = new char[8] { '0', '0', '0', '0', '0', '0', '0', '0' };
 
             string tag = TextUtils.FindCurrentXmlTag(Lines[index]);
 
@@ -606,14 +694,59 @@ namespace CCodeEditorLib
 
                 if (!sign)
                 {
+                    if (c == '#')
+                    {
+                        if (k > 0)
+                        {
+                            paragraph.Inlines.Add(new Run(new string(word, 0, k)));
+                            k = 0;
+                        }
+
+                        collect_color = true;
+                        RunColor = new Run("#");
+                        paragraph.Inlines.Add(RunColor);
+                        continue;
+                    }
+                    else if (collect_color)
+                    {
+                        if (RunColor != null && ccounter < 8)
+                        {
+                            ColorValue[ccounter++] = c;
+
+                            try
+                            {
+                                string colorstr = new string(ColorValue);
+                                Color color = (Color)ColorConverter.ConvertFromString("#" + colorstr);
+                                uint ucolor = 0xFFFFFFu ^ ((uint)(color.R << 16 | color.G << 8 | color.B));
+                                RunColor.Background = new SolidColorBrush(color);
+                                RunColor.Foreground = new SolidColorBrush(Color.FromArgb(255, (byte)((ucolor >> 16) & 0xff), (byte)((ucolor >> 8) & 0xff), (byte)((ucolor) & 0xff)));
+                            }
+                            catch { }
+                        }
+                        else
+                        {
+                            ccounter = 0;
+                            RunColor = null;
+                            collect_color = false;
+                            ColorValue[0] = '0';
+                            ColorValue[1] = '0';
+                            ColorValue[2] = '0';
+                            ColorValue[3] = '0';
+                            ColorValue[4] = '0';
+                            ColorValue[5] = '0';
+                            ColorValue[6] = '0';
+                            ColorValue[7] = '0';
+                        }
+                    }
+
                     word[k] = c;
                     k++;
 
                     if (nj == Lines[index].Length)
                     {
-                        if (collect_string)
-                            paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
-                        else
+                        //if (collect_string)
+                        //    paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
+                        //else
                             CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
                     }
                     else if (k > 1 && c == '>')
@@ -624,42 +757,42 @@ namespace CCodeEditorLib
                 }
                 else
                 {
-                    if (c == '"')
-                    {
-                        // check string
-                        if (!collect_string)
-                        {
-                            collect_string = true;
+                    //if (c == '"')
+                    //{
+                    //    // check string
+                    //    if (collect_string == false)
+                    //    {
+                    //        collect_string = true;
 
-                            CheckKeywordInLine(false, c, new string(word, 0, k), paragraph);
-                            word[0] = '"';
-                            k = 1;
+                    //        CheckKeywordInLine(false, c, new string(word, 0, k), paragraph);
+                    //        word[0] = '"';
+                    //        k = 1;
 
-                            if (nj == Lines[index].Length)
-                                paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
-                        }
-                        else
-                        {
-                            collect_string = false;
-                            word[k] = c;
-                            k++;
-                            paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
-                            k = 0;
-                        }
-                    }
-                    else if (collect_string)
-                    {
-                        word[k] = c;
-                        k++;
+                    //        if (nj == Lines[index].Length)
+                    //            paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
+                    //    }
+                    //    else
+                    //    {
+                    //        collect_string = false;
+                    //        word[k] = c;
+                    //        k++;
+                    //        paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
+                    //        k = 0;
+                    //    }
+                    //}
+                    //else if (collect_string == true)
+                    //{
+                    //    word[k] = c;
+                    //    k++;
 
-                        if (nj == Lines[index].Length)
-                            paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
-                    }
-                    else
-                    {
+                    //    if (nj == Lines[index].Length)
+                    //        paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
+                    //}
+                    //else
+                    //{
                         CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
                         k = 0;
-                    }
+                    //}
                 }
             }
         }
@@ -714,6 +847,12 @@ namespace CCodeEditorLib
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
             Point point = new Point(rect.X, rect.Y);
 
+            // collect color
+            Run RunColor = null;
+            int ccounter = 0;
+            bool collect_color = false;
+            char[] ColorValue = new char[8] { '0', '0', '0', '0', '0', '0', '0', '0' };
+
             tbxCode.Document.Blocks.Clear();
 
             if (string.IsNullOrEmpty(Lines.Last()))
@@ -752,6 +891,38 @@ namespace CCodeEditorLib
                     {
                         word[k] = c;
                         k++;
+
+                        if (collect_color)
+                        {
+                            if (RunColor != null && ccounter < 8)
+                            {
+                                ColorValue[ccounter++] = c;
+
+                                try
+                                {
+                                    string colorstr = new string(ColorValue);
+                                    Color color = (Color)ColorConverter.ConvertFromString("#" + colorstr);
+                                    uint ucolor = 0xFFFFFFu ^ ((uint)(color.R << 16 | color.G << 8 | color.B));
+                                    RunColor.Background = new SolidColorBrush(color);
+                                    RunColor.Foreground = new SolidColorBrush(Color.FromArgb(255, (byte)((ucolor >> 16) & 0xff), (byte)((ucolor >> 8) & 0xff), (byte)((ucolor) & 0xff)));
+                                }
+                                catch { }
+                            }
+                            else
+                            {
+                                ccounter = 0;
+                                RunColor = null;
+                                collect_color = false;
+                                ColorValue[0] = '0';
+                                ColorValue[1] = '0';
+                                ColorValue[2] = '0';
+                                ColorValue[3] = '0';
+                                ColorValue[4] = '0';
+                                ColorValue[5] = '0';
+                                ColorValue[6] = '0';
+                                ColorValue[7] = '0';
+                            }
+                        }
 
                         if (nj == Lines[i].Length)
                         {
@@ -875,6 +1046,12 @@ namespace CCodeEditorLib
                                 else
                                     CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
                             }
+                        }
+                        else if (c == '#')
+                        {
+                            collect_color = true;
+                            RunColor = new Run("#");
+                            paragraph.Inlines.Add(RunColor);
                         }
                         else
                         {
@@ -1210,6 +1387,8 @@ namespace CCodeEditorLib
                 }
                 else if (e.Key == Key.F)
                     DisplayFindPane();
+                else if (e.Key == Key.Oem2)
+                    Comment();
 
                 popSuggestion.IsOpen = false;
                 lstKeyword.Items.Filter = null;
@@ -1218,6 +1397,8 @@ namespace CCodeEditorLib
             {
                 if (e.Key == Key.Delete)
                     TextUtils.DeleteCurrentLine(tbxCode);
+                else if (e.Key == Key.OemOpenBrackets || e.Key == Key.OemCloseBrackets)
+                    StartFormatCode = true;
                 else
                     CaptureInput(e.Key);
             }
@@ -1244,7 +1425,12 @@ namespace CCodeEditorLib
                     }
                 }
                 else if (e.Key == Key.Enter)
+                {
                     e.Handled = SelectSuggestion();
+                    StartFormatCode = true;
+                }
+                else if (e.Key == Key.Oem1)
+                    StartFormatCode = true;
                 else if (e.Key == Key.Right || e.Key == Key.Left)
                     popSuggestion.IsOpen = false;
                 else if (e.Key == Key.F3)
@@ -1283,6 +1469,12 @@ namespace CCodeEditorLib
                     inputchar = key.ToString().ToLower();
                     DisplaySuggestionPopup();
                 }
+                else if (key == Key.OemPeriod)
+                {
+                    inputchar = ".";
+                    DisplaySuggestionPopup(true);
+                    return;
+                }
             }
             else
             {
@@ -1304,6 +1496,7 @@ namespace CCodeEditorLib
             }
 
             FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
+            FilterWord = FilterWord.TrimStart('.');
 
             if (key == Key.Back)
             {
@@ -1346,7 +1539,7 @@ namespace CCodeEditorLib
                     string sugg = "";
                     string prec = TextUtils.GetPreCharacter(tbxCode)?.Trim();
 
-                    if (!string.IsNullOrEmpty(prec))
+                    if (!string.IsNullOrEmpty(prec) && prec != "." && prec != "(")
                         sugg = " ";
 
                     sugg += keyword.ReplaceKey == null ? keyword.Key : keyword.ReplaceKey;
@@ -1460,7 +1653,8 @@ namespace CCodeEditorLib
 
         private void TbxCode_SelectionChanged(object sender, RoutedEventArgs e)
         {
-            FindCurrentTag();
+            if (CodeType == EditorCodeType.XML)
+                FindCurrentTag();
         }
 
         private void LstKeyword_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1513,6 +1707,9 @@ namespace CCodeEditorLib
             bool collect_string = false;
             bool collect_comment = false;
             bool collect_comment_star = false;
+
+            if (InitOnce)
+                CaretPosLineFirstLen = TextUtils.GetLineText(tbxCode).Length;
 
             for (int i = 0; i < code.Length; i++)
             {
@@ -1571,7 +1768,6 @@ namespace CCodeEditorLib
                     continue;
                 }
 
-
                 // remove more than one space
                 char nextcs = SkipForward(ref code, ' ', ref i, last); // next character without space
 
@@ -1597,7 +1793,7 @@ namespace CCodeEditorLib
                     InsertGap(ncode, ref j, startcolumn);
                     startcolumn++;
 
-                    if (precs != '\n')
+                    if (precs != '\n' && precs != '\0')
                         ncode[j++] = '\n';
 
                     ncode[j++] = '{';
@@ -1741,6 +1937,13 @@ namespace CCodeEditorLib
             CodeText = new string(ncode, 0, j);
             Lines = CodeText.Split('\n');
             TextChecking();
+
+            if (InitOnce)
+            {
+                CaretPosTimer.Stop();
+                CaretPosTimer.Start();
+            }
+
             Editing = false;
 
             //string error = CSharpParser.Compile(CodeText);
@@ -1854,7 +2057,7 @@ namespace CCodeEditorLib
                     if (System.IO.Path.GetExtension(fullpath).ToLower() == "xml")
                         InputCodeType = EditorCodeType.XML;
                     else
-                        InputCodeType = EditorCodeType.CSharp;
+                        InputCodeType = EditorCodeType.CODA;
 
                     Text = File.ReadAllText(fullpath);
                 }
@@ -2070,6 +2273,24 @@ namespace CCodeEditorLib
                 ExitSearch();
                 e.Handled = true;
             }
+        }
+
+        public void Comment()
+        {
+            if (CodeType == EditorCodeType.CODA || CodeType == EditorCodeType.Shader)
+                CommentCode();
+            else if (CodeType == EditorCodeType.CODA)
+                CommentXML();
+        }
+
+        private void CommentXML()
+        {
+
+        }
+
+        private void CommentCode()
+        {
+            TextUtils.GetFirstOfCurrentLine(tbxCode.CaretPosition).InsertTextInRun("//");
         }
     }
 }

@@ -128,9 +128,21 @@ namespace CCodeEditorLib.Source
         {
             TextPointer caretPos = rtb.CaretPosition;
             TextPointer start = caretPos.GetLineStartPosition(0);
-            TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
+            TextPointer end = GetEndOfCurrentLine(caretPos);
 
             return new TextRange(start, end).Text;
+        }
+
+        public static TextPointer GetEndOfCurrentLine(TextPointer caretPos)
+        {
+            TextPointer next = caretPos.GetLineStartPosition(1);
+
+            return (next != null ? next : caretPos.DocumentEnd).GetNextInsertionPosition(LogicalDirection.Backward);
+        }
+
+        public static TextPointer GetFirstOfCurrentLine(TextPointer caretPos)
+        {
+            return caretPos.GetLineStartPosition(0);
         }
 
         public static void CopyCurrentLine(RichTextBox rtb)
