@@ -145,6 +145,21 @@ namespace CCodeEditorLib.Source
             return caretPos.GetLineStartPosition(0);
         }
 
+        public static TextPointer GetFirstOfCurrentLineWithoutSpace(TextPointer caretPos)
+        {
+            TextPointer pos = null;
+            TextPointer nex = caretPos.GetLineStartPosition(0); 
+
+            do
+            {
+                pos = nex;
+                nex = pos.GetNextInsertionPosition(LogicalDirection.Forward);
+            }
+            while (string.IsNullOrWhiteSpace(new TextRange(pos, nex).Text));
+
+            return pos;
+        }
+
         public static void CopyCurrentLine(RichTextBox rtb)
         {
             TextPointer caretPos = rtb.CaretPosition;
@@ -170,6 +185,11 @@ namespace CCodeEditorLib.Source
 
             if (tp != null)
                 rtb.CaretPosition = tp;
+        }
+
+        public static void SelectFromCaretToStartOfLine(RichTextBox rtb)
+        {
+            rtb.Selection.Select(rtb.CaretPosition, GetFirstOfCurrentLineWithoutSpace(rtb.CaretPosition));
         }
 
         public static void InsertEmptyLine(RichTextBox rtb)
@@ -281,6 +301,29 @@ namespace CCodeEditorLib.Source
             TextPointer pre = caretPos.GetPositionAtOffset(-1, LogicalDirection.Forward);
 
             return new TextRange(caretPos, pre).Text;
+        }
+
+        public static string FindCurrentWord(RichTextBox rtb)
+        {
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+
+            int lastindex = 0;
+            string line = new TextRange(start, caretPos).Text;
+
+            if (string.IsNullOrWhiteSpace(line))
+                return "";
+
+            for (int i = line.Length - 1; i > -1; i--)
+            {
+                if (line[i] == ' ')
+                {
+                    lastindex = i + 1;
+                    break;
+                }
+            }
+
+            return line.Substring(lastindex);
         }
 
         public static string FindCurrentXmlTag(RichTextBox rtx)

@@ -26,13 +26,13 @@ namespace CCodeEditorLib
     /// </summary>
     public partial class CodeEditor : UserControl
     {
-        private bool InSubSuggestion = false;
         private bool InitOnce = false;
         private bool Editing = false;
         private bool UndoAction = false;
         private bool Formated = false;
         private bool Checking = false;
         private bool StartFormatCode = false;
+        private int CtrlHomeCounter = 0;
         private int TagCounter = 0;
         private int CaretPosLineFirstLen = 0;
         private string FilterWord = "";
@@ -617,36 +617,11 @@ namespace CCodeEditorLib
             return EndWord;
         }
 
-        private void DisplaySuggestionPopup(bool dot = false)
+        private void DisplaySuggestionPopup()
         {
             if (!popSuggestion.IsOpen)
             {
                 FindBeginOfWord();
-
-                if (dot && UpdateSubSuggestionList != null)
-                {
-                    FindEndOfWord();
-                    UpdateSubSuggestionList.Invoke(new TextRange(StartWord, EndWord).Text);
-
-                    //SubSuggestions = new List<Keyword>();
-                    //SubSuggestions.Add(new Keyword(Brushes.WhiteSmoke, "SetText", KeywordType.Method));
-
-                    if (SubSuggestions != null && SubSuggestions.Count > 0)
-                    {
-                        InSubSuggestion = true;
-                        lstKeyword.Items.Filter = null;
-                        lstKeyword.ItemsSource = null;
-                        lstKeyword.ItemsSource = SubSuggestions;
-                    }
-                }
-                else if (InSubSuggestion)
-                {
-                    InSubSuggestion = false;
-                    lstKeyword.Items.Filter = null;
-                    lstKeyword.ItemsSource = null;
-                    lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
-                }
-
                 Rect rect = StartWord.GetCharacterRect(LogicalDirection.Backward);
                 Point point = tbxCode.PointToScreen(rect.BottomRight);
                 popSuggestion.HorizontalOffset = point.X;
@@ -747,7 +722,7 @@ namespace CCodeEditorLib
                         //if (collect_string)
                         //    paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
                         //else
-                            CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
+                        CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
                     }
                     else if (k > 1 && c == '>')
                     {
@@ -790,8 +765,8 @@ namespace CCodeEditorLib
                     //}
                     //else
                     //{
-                        CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
-                        k = 0;
+                    CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
+                    k = 0;
                     //}
                 }
             }
@@ -1354,6 +1329,8 @@ namespace CCodeEditorLib
 
         private void tbxCode_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            CtrlHomeCounter--;
+
             if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 if (e.Key == Key.Z)
@@ -1397,6 +1374,16 @@ namespace CCodeEditorLib
             {
                 if (e.Key == Key.Delete)
                     TextUtils.DeleteCurrentLine(tbxCode);
+                else if (e.Key == Key.Home)
+                {
+                    if (CtrlHomeCounter <= 0)
+                    {
+                        CtrlHomeCounter = 2;
+                        TextUtils.SelectFromCaretToStartOfLine(tbxCode);
+                        e.Handled = true;
+                        return;
+                    }
+                }
                 else if (e.Key == Key.OemOpenBrackets || e.Key == Key.OemCloseBrackets)
                     StartFormatCode = true;
                 else
@@ -1472,8 +1459,7 @@ namespace CCodeEditorLib
                 else if (key == Key.OemPeriod)
                 {
                     inputchar = ".";
-                    DisplaySuggestionPopup(true);
-                    return;
+                    DisplaySuggestionPopup();
                 }
             }
             else
@@ -1495,10 +1481,48 @@ namespace CCodeEditorLib
                 }
             }
 
-            FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
-            FilterWord = FilterWord.TrimStart('.');
+            FindSuggestion(inputchar, key == Key.Back);
+        }
 
-            if (key == Key.Back)
+        private void FindSuggestion(string inputchar, bool backspace)
+        {
+            string curword = TextUtils.FindCurrentWord(tbxCode) + inputchar;
+
+            if (string.IsNullOrEmpty(curword))
+                return;
+
+            string[] sections = curword.TrimStart('.').Split('.');
+
+            // find suggestion after .
+            if (sections.Length >= 2)
+            {
+                if (UpdateSubSuggestionList != null)
+                {
+                    // get list of new keywords
+                    UpdateSubSuggestionList.Invoke(sections[sections.Length - 2]);
+
+                    if (SubSuggestions != null && SubSuggestions.Count > 0)
+                    {
+                        // update new keyword list
+                        lstKeyword.Items.Filter = null;
+                        lstKeyword.ItemsSource = null;
+                        lstKeyword.ItemsSource = SubSuggestions;
+                    }
+                    else
+                        ResetFilterSuggestions();
+                }
+                else
+                    ResetFilterSuggestions();
+            }
+            else
+                ResetFilterSuggestions();
+
+            FilterWord = sections[sections.Length - 1].ToLower();
+
+            //FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
+            //FilterWord = FilterWord.TrimStart('.');
+
+            if (backspace)
             {
                 if (FilterWord.Length > 0)
                     FilterWord = FilterWord.Remove(FilterWord.Length - 1);
@@ -1519,6 +1543,13 @@ namespace CCodeEditorLib
             else
                 // filtered list is empty
                 popSuggestion.IsOpen = false;
+        }
+
+        private void ResetFilterSuggestions()
+        {
+            lstKeyword.Items.Filter = null;
+            lstKeyword.ItemsSource = null;
+            lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
         }
 
         private bool SelectSuggestion()
@@ -2290,7 +2321,7 @@ namespace CCodeEditorLib
 
         private void CommentCode()
         {
-            TextUtils.GetFirstOfCurrentLine(tbxCode.CaretPosition).InsertTextInRun("//");
+            TextUtils.GetFirstOfCurrentLineWithoutSpace(tbxCode.CaretPosition).InsertTextInRun("//");
         }
     }
 }
