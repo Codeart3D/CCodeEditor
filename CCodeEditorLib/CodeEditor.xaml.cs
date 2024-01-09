@@ -47,6 +47,7 @@ namespace CCodeEditorLib
         private string CurrentTag = null;
         private string[] Lines;
         private string CodeText;
+        private string CurrentSuggestion;
         private TextBlock[] textBlocks = new TextBlock[100];
         private char[] Delimiters;
         private char[] FindDelimiters = new char[] { ' ', '<', '>', '{', '}', '[', ']', '(', ')', ',', '.' };
@@ -60,11 +61,11 @@ namespace CCodeEditorLib
         private DispatcherTimer CodeTimer = null; // for format code
         private DispatcherTimer CaretPosTimer = null; // for format code
 
-        private SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
-        private SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
-        private SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(80, 170, 160));
-        private SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
-        private SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
+        private static SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
+        private static SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
+        private static SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(80, 170, 160));
+        public static SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
+        private static SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
         // 230, 200, 150 cream gold
 
         public List<Keyword> SubSuggestions;
@@ -264,7 +265,6 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(MainKeywordBrush, "true"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "false"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "public"));
-                    Keywords.Add(new Keyword(MainKeywordBrush, "object"));
                 }
                 else if (value == EditorCodeType.Shader)
                 {
@@ -379,6 +379,16 @@ namespace CCodeEditorLib
         }
 
         public void AddCSharpVariableKeyword(string VariableKey)
+        {
+            Keywords.Add(new Keyword(VariableColor, VariableKey, KeywordType.Variable));
+        }
+
+        public void ClearLocalVariableKeywords()
+        {
+            Keywords.RemoveAll(p => p.Type == KeywordType.LocalVariable);
+        }
+
+        public void AddCSharpLocalVariableKeyword(string VariableKey)
         {
             Keywords.Add(new Keyword(VariableColor, VariableKey, KeywordType.Variable));
         }
@@ -1484,6 +1494,35 @@ namespace CCodeEditorLib
             FindSuggestion(inputchar, key == Key.Back);
         }
 
+        private string FilterFromFunction(string sugg, string sugg2)
+        {
+            if (!string.IsNullOrEmpty(sugg))
+            {
+                // check for functions
+                string[] par = sugg.Split('(');
+
+                if (par != null && par.Length > 0)
+                {
+                    sugg = par[par.Length - 1];
+
+                    // check for pre coma
+                    string[] coma = sugg.Split(',');
+
+                    if (coma != null && coma.Length > 0)
+                        sugg = coma[coma.Length - 1];
+                }
+                else
+                    return sugg2;
+
+                return sugg;
+            }
+
+            if (!string.IsNullOrEmpty(sugg2))
+                return FilterFromFunction(sugg2, "");
+
+            return "";
+        }
+
         private void FindSuggestion(string inputchar, bool backspace)
         {
             string curword = TextUtils.FindCurrentWord(tbxCode) + inputchar;
@@ -1498,8 +1537,10 @@ namespace CCodeEditorLib
             {
                 if (UpdateSubSuggestionList != null)
                 {
+                    CurrentSuggestion = FilterFromFunction(sections[sections.Length - 1], sections[sections.Length - 2]);
+
                     // get list of new keywords
-                    UpdateSubSuggestionList.Invoke(sections[sections.Length - 2]);
+                    UpdateSubSuggestionList.Invoke(CurrentSuggestion);
 
                     if (SubSuggestions != null && SubSuggestions.Count > 0)
                     {
@@ -1513,11 +1554,14 @@ namespace CCodeEditorLib
                 }
                 else
                     ResetFilterSuggestions();
+
+                FilterWord = FilterFromFunction(sections[sections.Length - 1], "").ToLower();
             }
             else
+            {
                 ResetFilterSuggestions();
-
-            FilterWord = sections[sections.Length - 1].ToLower();
+                FilterWord = sections[sections.Length - 1].ToLower();
+            }
 
             //FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
             //FilterWord = FilterWord.TrimStart('.');
@@ -1533,10 +1577,15 @@ namespace CCodeEditorLib
 
             //if (!IsXML)
             //else
-            lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().StartsWith(FilterWord); };
+            if (!string.IsNullOrEmpty(FilterWord))
+            {
+                lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().StartsWith(FilterWord); };
 
-            if (lstKeyword.Items.Count == 0)
-                lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().Contains(FilterWord); };
+                if (lstKeyword.Items.Count == 0)
+                    lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().Contains(FilterWord); };
+            }
+            else
+                lstKeyword.Items.Filter = null;
 
             if (lstKeyword.Items.Count > 0)
                 lstKeyword.SelectedIndex = 0;
@@ -1945,8 +1994,8 @@ namespace CCodeEditorLib
                         precs = curc;
                         ncode[j++] = curc;
 
-                        // insert space after a sign
-                        if (CheckStandardSignWithExtra(curc) && CheckLetterNumber(nexc))
+                        // insert space after a sign when it is a operator not a value sign +- 0.2f
+                        if (CheckStandardSignWithExtra(curc) && CheckLetterNumber(nexc) && !string.IsNullOrEmpty(preword))
                             ncode[j++] = ' ';
                     }
                     else if (precs == '\n' && nextcs != '}' && nextcs != '{')
