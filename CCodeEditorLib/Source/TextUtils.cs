@@ -130,6 +130,9 @@ namespace CCodeEditorLib.Source
             TextPointer start = caretPos.GetLineStartPosition(0);
             TextPointer end = GetEndOfCurrentLine(caretPos);
 
+            if (end == null)
+                return "";
+
             return new TextRange(start, end).Text;
         }
 

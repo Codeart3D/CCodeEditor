@@ -124,6 +124,9 @@ namespace CCodeEditorLib
                     SetLineNumber();
                     CheckScrollBarVisibility();
 
+                    if (!string.IsNullOrEmpty(CodeText))
+                        UndoStack.Push(CodeText);
+
                     Editing = false;
                 }
             }
@@ -216,11 +219,20 @@ namespace CCodeEditorLib
             if (sub > 0)
             {
                 for (int i = 0; i < sub; i++)
-                    tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+                {
+                    TextPointer tp = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                    if (tp != null)
+                        tbxCode.CaretPosition = tp;
+                }
             }
             else
             {
-                tbxCode.CaretPosition = TextUtils.GetEndOfCurrentLine(tbxCode.CaretPosition);
+                TextPointer tp = TextUtils.GetEndOfCurrentLine(tbxCode.CaretPosition);
+
+                if (tp != null)
+                    tbxCode.CaretPosition = tp;
+
                 //    sub = -sub;
 
                 //    for (int i = 0; i < sub; i++)
@@ -1669,8 +1681,6 @@ namespace CCodeEditorLib
                     Editing = false;
                     XmlChanged?.Invoke(this, CodeText);
                 }
-                else
-                    tbxCode.Document.Blocks.Clear();
 
                 UndoAction = true;
             }
@@ -1697,6 +1707,12 @@ namespace CCodeEditorLib
                 Editing = false;
                 XmlChanged?.Invoke(this, CodeText);
             }
+        }
+
+        public void ClearUndoRedo()
+        {
+            UndoStack.Clear();
+            RedoStack.Clear();
         }
 
         private void FindCurrentTag()
@@ -2020,8 +2036,11 @@ namespace CCodeEditorLib
 
             if (InitOnce)
             {
-                CaretPosTimer.Stop();
-                CaretPosTimer.Start();
+                if (CaretPosTimer != null)
+                {
+                    CaretPosTimer.Stop();
+                    CaretPosTimer.Start();
+                }
             }
 
             Editing = false;
