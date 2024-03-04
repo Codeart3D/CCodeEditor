@@ -1513,7 +1513,7 @@ namespace CCodeEditorLib
                 // check for functions
                 string[] par = sugg.Split('(');
 
-                if (par != null && par.Length > 0)
+                if (par != null && par.Length > 1)
                 {
                     sugg = par[par.Length - 1];
 
@@ -1524,7 +1524,7 @@ namespace CCodeEditorLib
                         sugg = coma[coma.Length - 1];
                 }
                 else
-                    return sugg2;
+                    return sugg2.TrimStart('(');
 
                 return sugg;
             }
@@ -1538,10 +1538,12 @@ namespace CCodeEditorLib
         private void FindSuggestion(string inputchar, bool backspace)
         {
             string curword = TextUtils.FindCurrentWord(tbxCode) + inputchar;
-
+            
             if (string.IsNullOrEmpty(curword))
                 return;
 
+            string[] splt = curword.Split('(');
+            curword = splt[splt.Length - 1];
             string[] sections = curword.TrimStart('.').Split('.');
 
             // find suggestion after .
@@ -1567,7 +1569,7 @@ namespace CCodeEditorLib
                 else
                     ResetFilterSuggestions();
 
-                FilterWord = FilterFromFunction(sections[sections.Length - 1], "").ToLower();
+                FilterWord = sections[sections.Length - 1].ToLower();
             }
             else
             {
