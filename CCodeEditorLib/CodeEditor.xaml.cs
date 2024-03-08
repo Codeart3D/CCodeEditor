@@ -51,7 +51,7 @@ namespace CCodeEditorLib
         private TextBlock[] textBlocks = new TextBlock[100];
         private char[] Delimiters;
         private char[] FindDelimiters = new char[] { ' ', '<', '>', '{', '}', '[', ']', '(', ')', ',', '.' };
-        private char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';', '#' };
+        public static char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';', '#' };
         private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
 
         private Stack<string> UndoStack = new Stack<string>();
@@ -402,7 +402,7 @@ namespace CCodeEditorLib
 
         public void AddCSharpLocalVariableKeyword(string VariableKey)
         {
-            Keywords.Add(new Keyword(VariableColor, VariableKey, KeywordType.Variable));
+            Keywords.Add(new Keyword(VariableColor, VariableKey, KeywordType.LocalVariable));
         }
 
         public void SetXmlRoot(KeywordClass root)
@@ -1530,7 +1530,14 @@ namespace CCodeEditorLib
             }
 
             if (!string.IsNullOrEmpty(sugg2))
-                return FilterFromFunction(sugg2, "");
+            {
+                string fff = FilterFromFunction(sugg2, "");
+
+                if (!string.IsNullOrEmpty(fff))
+                    return fff;
+                else
+                    return sugg2;
+            }
 
             return "";
         }
