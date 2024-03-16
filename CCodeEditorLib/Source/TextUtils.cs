@@ -436,5 +436,21 @@ namespace CCodeEditorLib.Source
                 return (T)formatter.Deserialize(ms);
             }
         }
+
+        public static void ReplaceInCurrentLine(RichTextBox rtb, string txt, string replace)
+        {
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+            TextPointer end = GetEndOfCurrentLine(caretPos);
+
+            if (end == null)
+                return;
+
+            TextRange range = new TextRange(start, end);
+
+            string str = range.Text;
+            int position = str.IndexOf(txt);
+            range.Text = str.Substring(0, position) + replace + str.Substring(position + txt.Length);
+        }
     }
 }

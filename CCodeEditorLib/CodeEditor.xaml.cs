@@ -1360,6 +1360,8 @@ namespace CCodeEditorLib
                     if (UndoRedoShortcutKey)
                         Redo();
                 }
+                else if (e.Key == Key.Oem2)
+                    Uncomment();
             }
             else if (Keyboard.Modifiers == ModifierKeys.Control)
             {
@@ -1822,11 +1824,6 @@ namespace CCodeEditorLib
                 int nex = i + 1;
 
                 char curc = code[i];
-
-                // skip space at begin of line for prevent extra gap
-                if (curc == ' ' && precs == '\n')
-                    continue;
-
                 char prec = '\0'; // prev character with space 
                 char nexc = '\0'; // next character with space
 
@@ -1872,6 +1869,10 @@ namespace CCodeEditorLib
 
                     continue;
                 }
+
+                // skip space at begin of line for prevent extra gap
+                if (curc == ' ' && precs == '\n')
+                    continue;
 
                 // remove more than one space
                 char nextcs = SkipForward(ref code, ' ', ref i, last); // next character without space
@@ -2391,7 +2392,20 @@ namespace CCodeEditorLib
                 CommentXML();
         }
 
+        public void Uncomment()
+        {
+            if (CodeType == EditorCodeType.CODA || CodeType == EditorCodeType.Shader)
+                UncommentCode();
+            else if (CodeType == EditorCodeType.CODA)
+                UncommentXML();
+        }
+
         private void CommentXML()
+        {
+
+        }
+
+        private void UncommentXML()
         {
 
         }
@@ -2399,6 +2413,11 @@ namespace CCodeEditorLib
         private void CommentCode()
         {
             TextUtils.GetFirstOfCurrentLineWithoutSpace(tbxCode.CaretPosition).InsertTextInRun("//");
+        }
+
+        private void UncommentCode()
+        {
+            TextUtils.ReplaceInCurrentLine(tbxCode, "//", "");
         }
     }
 }
