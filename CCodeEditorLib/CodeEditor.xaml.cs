@@ -83,7 +83,7 @@ namespace CCodeEditorLib
         public delegate void CodeEditorTextReplace(CodeEditor editor);
         public static event CodeEditorTextReplace RequestToReplaceText;
 
-        public delegate void RestoreSuggestionList(string word);
+        public delegate void RestoreSuggestionList(List<string> part);
         public event RestoreSuggestionList UpdateSubSuggestionList;
 
         public event TextChangedEventHandler TextChanged;
@@ -1546,24 +1546,54 @@ namespace CCodeEditorLib
 
         private void FindSuggestion(string inputchar, bool backspace)
         {
-            string curword = TextUtils.FindCurrentWord(tbxCode) + inputchar;
-            
-            if (string.IsNullOrEmpty(curword))
+            string curline = TextUtils.GetCurrentLine(tbxCode) + inputchar;
+
+            if (string.IsNullOrEmpty(curline))
                 return;
 
-            string[] splt = curword.Split('(');
-            curword = splt[splt.Length - 1];
-            string[] sections = curword.TrimStart('.').Split('.');
+            //string[] splt = curline.Split('(');
+            //curline = splt[splt.Length - 1];
+            //string[] sections = curline.TrimStart(')').TrimStart('.').Split('.');
+
+            //bool first = false;
+            //Stack<string> spart = new Stack<string>();
+            List<string> newpart = new List<string>();
+            List<string> part = curline.Split(CodeDelimiters).ToList();
+
+            //for (int i = part.Count - 1; i >= 0; i--)
+            //{
+            //    if (string.IsNullOrEmpty(part[i]))
+            //    {
+            //        if (first)
+            //            break;
+            //        else
+            //            continue;
+            //    }
+
+            //    first = true;
+            //    spart.Push(part[i]);
+            //}
+
+            //int spc = spart.Count;
+
+            //for (int i = 0; i < spc; i++)
+            //    newpart.Add(spart.Pop());
+
+            for (int i = 0; i < part.Count; i++)
+            {
+                if (!string.IsNullOrEmpty(part[i]))
+                    newpart.Add(part[i]);
+            }
 
             // find suggestion after .
-            if (sections.Length >= 2)
+            if (newpart.Count > 0)
             {
                 if (UpdateSubSuggestionList != null)
                 {
-                    CurrentSuggestion = FilterFromFunction(sections[sections.Length - 1], sections[sections.Length - 2]);
+                    //CurrentSuggestion = FilterFromFunction(sections[sections.Length - 1], sections[sections.Length - 2]);
 
                     // get list of new keywords
-                    UpdateSubSuggestionList.Invoke(CurrentSuggestion);
+                    UpdateSubSuggestionList.Invoke(newpart);// CurrentSuggestion, null);
 
                     if (SubSuggestions != null && SubSuggestions.Count > 0)
                     {
@@ -1578,12 +1608,20 @@ namespace CCodeEditorLib
                 else
                     ResetFilterSuggestions();
 
-                FilterWord = sections[sections.Length - 1].ToLower();
+                if (inputchar != null)
+                {
+                    if (!CodeDelimiters.Any(p => p == inputchar[0]))
+                        FilterWord = newpart[newpart.Count - 1].Trim().ToLower();
+                    else
+                        FilterWord = null;
+                }
+                else
+                    FilterWord = newpart[newpart.Count - 1].Trim().ToLower();
             }
             else
             {
                 ResetFilterSuggestions();
-                FilterWord = sections[sections.Length - 1].ToLower();
+                FilterWord = curline.Trim().ToLower();
             }
 
             //FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
@@ -1591,11 +1629,10 @@ namespace CCodeEditorLib
 
             if (backspace)
             {
-                if (FilterWord.Length > 0)
-                    FilterWord = FilterWord.Remove(FilterWord.Length - 1);
-
                 if (string.IsNullOrEmpty(FilterWord))
                     popSuggestion.IsOpen = false;
+                else
+                    FilterWord = FilterWord.Remove(FilterWord.Length - 1);
             }
 
             //if (!IsXML)
@@ -1690,7 +1727,11 @@ namespace CCodeEditorLib
                     TextChecking();
                     SetLineNumber();
                     Editing = false;
-                    XmlChanged?.Invoke(this, CodeText);
+
+                    if (CodeType == EditorCodeType.XML)
+                        XmlChanged?.Invoke(this, CodeText);
+                    else
+                        TextChanged?.Invoke(this, null);
                 }
 
                 UndoAction = true;
@@ -1716,7 +1757,11 @@ namespace CCodeEditorLib
                 TextChecking();
                 SetLineNumber();
                 Editing = false;
-                XmlChanged?.Invoke(this, CodeText);
+
+                if (CodeType == EditorCodeType.XML)
+                    XmlChanged?.Invoke(this, CodeText);
+                else
+                    TextChanged?.Invoke(this, null);
             }
         }
 
@@ -2386,18 +2431,18 @@ namespace CCodeEditorLib
 
         public void Comment()
         {
-            if (CodeType == EditorCodeType.CODA || CodeType == EditorCodeType.Shader)
-                CommentCode();
-            else if (CodeType == EditorCodeType.CODA)
+            if (CodeType == EditorCodeType.XML)
                 CommentXML();
+            else
+                CommentCode();
         }
 
         public void Uncomment()
         {
-            if (CodeType == EditorCodeType.CODA || CodeType == EditorCodeType.Shader)
-                UncommentCode();
-            else if (CodeType == EditorCodeType.CODA)
+            if (CodeType == EditorCodeType.XML)
                 UncommentXML();
+            else
+                UncommentCode();
         }
 
         private void CommentXML()

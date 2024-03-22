@@ -329,6 +329,14 @@ namespace CCodeEditorLib.Source
             return line.Substring(lastindex);
         }
 
+        public static string GetCurrentLine(RichTextBox rtb)
+        {
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+
+            return new TextRange(start, caretPos).Text;
+        }
+
         public static string FindCurrentXmlTag(RichTextBox rtx)
         {
             TextPointer caretPos = rtx.CaretPosition;
