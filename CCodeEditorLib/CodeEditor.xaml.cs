@@ -36,6 +36,7 @@ namespace CCodeEditorLib
         private int TagCounter = 0;
         private int CaretPosLineFirstLen = 0;
         private string FilterWord = "";
+        private string FindWord = null;
         private Typeface Typeface;
         private Keyword CurrentKeyword;
         private TextPointer StartWord;
@@ -208,6 +209,7 @@ namespace CCodeEditorLib
             }
 
             tbxCode.Focus();
+            CheckScrollBarVisibility();
         }
 
         private void CaretPosTimer_Tick(object sender, EventArgs e)
@@ -226,18 +228,18 @@ namespace CCodeEditorLib
                         tbxCode.CaretPosition = tp;
                 }
             }
-            else
-            {
-                TextPointer tp = TextUtils.GetEndOfCurrentLine(tbxCode.CaretPosition);
+            //else
+            //{
+            //    TextPointer tp = TextUtils.GetEndOfCurrentLine(tbxCode.CaretPosition);
 
-                if (tp != null)
-                    tbxCode.CaretPosition = tp;
+            //    if (tp != null)
+            //        tbxCode.CaretPosition = tp;
 
-                //    sub = -sub;
+            //    //    sub = -sub;
 
-                //    for (int i = 0; i < sub; i++)
-                //        tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
-            }
+            //    //    for (int i = 0; i < sub; i++)
+            //    //        tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+            //}
         }
 
         private void OnPaste(object sender, DataObjectPastingEventArgs e)
@@ -277,6 +279,7 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(MainKeywordBrush, "true"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "false"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "public"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "new"));
                 }
                 else if (value == EditorCodeType.Shader)
                 {
@@ -566,7 +569,13 @@ namespace CCodeEditorLib
                 }
                 else
                 {
-                    tbxCode.Document.PageWidth = this.ActualWidth - 20;
+                    double w = this.ActualWidth - 20;
+
+                    if (w > 0)
+                        tbxCode.Document.PageWidth = w;
+                    else
+                        tbxCode.Document.PageWidth = 100;
+
                     tbxCode.HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden;
                 }
             }
@@ -1251,6 +1260,10 @@ namespace CCodeEditorLib
                 Run run = new Run(part);
                 Keyword key = Keywords.Where(p => p.Key == part).FirstOrDefault();
 
+                // Find Highlight
+                if (FindWord != null && part == FindWord)
+                    run.Background = FindMarkBrush;
+
                 if (key != null)
                 {
                     run.Foreground = key.Color;
@@ -1546,112 +1559,130 @@ namespace CCodeEditorLib
 
         private void FindSuggestion(string inputchar, bool backspace)
         {
-            string curline = TextUtils.GetCurrentLine(tbxCode) + inputchar;
-
-            if (string.IsNullOrEmpty(curline))
-                return;
-
-            //string[] splt = curline.Split('(');
-            //curline = splt[splt.Length - 1];
-            //string[] sections = curline.TrimStart(')').TrimStart('.').Split('.');
-
-            //bool first = false;
-            //Stack<string> spart = new Stack<string>();
-            List<string> newpart = new List<string>();
-            List<string> part = curline.Split(CodeDelimiters).ToList();
-
-            //for (int i = part.Count - 1; i >= 0; i--)
-            //{
-            //    if (string.IsNullOrEmpty(part[i]))
-            //    {
-            //        if (first)
-            //            break;
-            //        else
-            //            continue;
-            //    }
-
-            //    first = true;
-            //    spart.Push(part[i]);
-            //}
-
-            //int spc = spart.Count;
-
-            //for (int i = 0; i < spc; i++)
-            //    newpart.Add(spart.Pop());
-
-            for (int i = 0; i < part.Count; i++)
+            try
             {
-                if (!string.IsNullOrEmpty(part[i]))
-                    newpart.Add(part[i]);
-            }
+                string curline = TextUtils.GetCurrentLine(tbxCode) + inputchar;
 
-            // find suggestion after .
-            if (newpart.Count > 0)
-            {
-                if (UpdateSubSuggestionList != null)
+                if (string.IsNullOrEmpty(curline))
+                    return;
+
+                //string[] splt = curline.Split('(');
+                //curline = splt[splt.Length - 1];
+                //string[] sections = curline.TrimStart(')').TrimStart('.').Split('.');
+
+                //bool first = false;
+                //Stack<string> spart = new Stack<string>();
+                List<string> newpart = new List<string>();
+                List<string> part = curline.Split(CodeDelimiters).ToList();
+
+                //for (int i = part.Count - 1; i >= 0; i--)
+                //{
+                //    if (string.IsNullOrEmpty(part[i]))
+                //    {
+                //        if (first)
+                //            break;
+                //        else
+                //            continue;
+                //    }
+
+                //    first = true;
+                //    spart.Push(part[i]);
+                //}
+
+                //int spc = spart.Count;
+
+                //for (int i = 0; i < spc; i++)
+                //    newpart.Add(spart.Pop());
+
+                for (int i = 0; i < part.Count; i++)
                 {
-                    //CurrentSuggestion = FilterFromFunction(sections[sections.Length - 1], sections[sections.Length - 2]);
+                    if (!string.IsNullOrEmpty(part[i]))
+                        newpart.Add(part[i]);
+                }
 
-                    // get list of new keywords
-                    UpdateSubSuggestionList.Invoke(newpart);// CurrentSuggestion, null);
-
-                    if (SubSuggestions != null && SubSuggestions.Count > 0)
+                // find suggestion after .
+                if (newpart.Count > 0)
+                {
+                    if (UpdateSubSuggestionList != null)
                     {
-                        // update new keyword list
-                        lstKeyword.Items.Filter = null;
-                        lstKeyword.ItemsSource = null;
-                        lstKeyword.ItemsSource = SubSuggestions;
+                        //CurrentSuggestion = FilterFromFunction(sections[sections.Length - 1], sections[sections.Length - 2]);
+
+                        // get list of new keywords
+                        UpdateSubSuggestionList.Invoke(newpart);// CurrentSuggestion, null);
+
+                        if (SubSuggestions != null && SubSuggestions.Count > 0)
+                        {
+                            // update new keyword list
+                            lstKeyword.Items.Filter = null;
+                            lstKeyword.ItemsSource = null;
+                            lstKeyword.ItemsSource = SubSuggestions;
+                        }
+                        else
+                            ResetFilterSuggestions();
                     }
                     else
                         ResetFilterSuggestions();
-                }
-                else
-                    ResetFilterSuggestions();
 
-                if (inputchar != null)
-                {
-                    if (!CodeDelimiters.Any(p => p == inputchar[0]))
-                        FilterWord = newpart[newpart.Count - 1].Trim().ToLower();
+                    if (inputchar != null)
+                    {
+                        if (!CodeDelimiters.Any(p => p == inputchar[0]))
+                            FilterWord = newpart[newpart.Count - 1].Trim().ToLower();
+                        else
+                            FilterWord = null;
+                    }
                     else
-                        FilterWord = null;
+                        FilterWord = newpart[newpart.Count - 1].Trim().ToLower();
                 }
                 else
-                    FilterWord = newpart[newpart.Count - 1].Trim().ToLower();
-            }
-            else
-            {
-                ResetFilterSuggestions();
-                FilterWord = curline.Trim().ToLower();
-            }
+                {
+                    ResetFilterSuggestions();
+                    FilterWord = curline.Trim().ToLower();
+                }
 
-            //FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
-            //FilterWord = FilterWord.TrimStart('.');
+                //FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
+                //FilterWord = FilterWord.TrimStart('.');
 
-            if (backspace)
-            {
-                if (string.IsNullOrEmpty(FilterWord))
-                    popSuggestion.IsOpen = false;
+                if (backspace)
+                {
+                    if (string.IsNullOrEmpty(FilterWord))
+                        popSuggestion.IsOpen = false;
+                    else
+                        FilterWord = FilterWord.Remove(FilterWord.Length - 1);
+                }
+
+                //if (!IsXML)
+                //else
+                if (!string.IsNullOrEmpty(FilterWord) && lstKeyword.Items != null && lstKeyword.Items.Count > 0)
+                {
+                    lstKeyword.Items.Filter = r =>
+                    {
+                        if (!string.IsNullOrEmpty((r as Keyword).Key))
+                            return (r as Keyword).Key.ToLower().StartsWith(FilterWord);
+
+                        return false;
+                    };
+
+                    if (lstKeyword.Items.Count == 0)
+                    {
+                        lstKeyword.Items.Filter = r =>
+                        {
+                            if (!string.IsNullOrEmpty((r as Keyword).Key))
+                                return (r as Keyword).Key.ToLower().Contains(FilterWord);
+
+                            return false;
+                        };
+                    }
+                }
                 else
-                    FilterWord = FilterWord.Remove(FilterWord.Length - 1);
+                    lstKeyword.Items.Filter = null;
+
+                if (lstKeyword.Items.Count > 0)
+                    lstKeyword.SelectedIndex = 0;
+                else
+                    // filtered list is empty
+                    popSuggestion.IsOpen = false;
             }
-
-            //if (!IsXML)
-            //else
-            if (!string.IsNullOrEmpty(FilterWord))
-            {
-                lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().StartsWith(FilterWord); };
-
-                if (lstKeyword.Items.Count == 0)
-                    lstKeyword.Items.Filter = r => { return (r as Keyword).Key.ToLower().Contains(FilterWord); };
-            }
-            else
-                lstKeyword.Items.Filter = null;
-
-            if (lstKeyword.Items.Count > 0)
-                lstKeyword.SelectedIndex = 0;
-            else
-                // filtered list is empty
-                popSuggestion.IsOpen = false;
+            catch { }
         }
 
         private void ResetFilterSuggestions()
@@ -2235,90 +2266,96 @@ namespace CCodeEditorLib
             if (!casesensitive)
                 text = text.ToLower();
 
-            ClearSearchMark();
-            Editing = true; // must set true again because claar search change it
+            FindWord = text;
 
-            for (int j = 0; j < tbxCode.Document.Blocks.Count; j++)
-            {
-                Paragraph item = tbxCode.Document.Blocks.ElementAt(j) as Paragraph;
-
-                for (int i = 0; i < item.Inlines.Count; i++)
-                {
-                    int k = 0;
-                    Run run = item.Inlines.ElementAt(i) as Run;
-
-                    if (casesensitive)
-                    {
-                        while ((k = run.Text.IndexOf(text, k)) != -1)
-                        {
-                            if (single)
-                            {
-                                if (k > 0)
-                                {
-                                    if (Char.IsLetterOrDigit(run.Text[k - 1]))
-                                    {
-                                        k += text.Length;
-                                        continue;
-                                    }
-                                }
-
-                                if (k + text.Length < run.Text.Length - 1)
-                                {
-                                    if (Char.IsLetterOrDigit(run.Text[k + text.Length]))
-                                    {
-                                        k += text.Length;
-                                        continue;
-                                    }
-                                }
-                            }
-
-                            TextPointer start = run.ContentStart.GetPositionAtOffset(k);
-                            TextPointer end = start.GetPositionAtOffset(text.Length);
-                            new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, FindMarkBrush);
-                            k += text.Length;
-
-                            if (k >= run.Text.Length)
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        while ((k = run.Text.ToLower().IndexOf(text, k)) != -1)
-                        {
-                            if (single)
-                            {
-                                if (k > 0)
-                                {
-                                    if (Char.IsLetterOrDigit(run.Text[k - 1]))
-                                    {
-                                        k += text.Length;
-                                        continue;
-                                    }
-                                }
-
-                                if (k + text.Length < run.Text.Length - 1)
-                                {
-                                    if (Char.IsLetterOrDigit(run.Text[k + text.Length]))
-                                    {
-                                        k += text.Length;
-                                        continue;
-                                    }
-                                }
-                            }
-
-                            TextPointer start = run.ContentStart.GetPositionAtOffset(k);
-                            TextPointer end = start.GetPositionAtOffset(text.Length);
-                            new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, FindMarkBrush);
-                            k += text.Length;
-
-                            if (k >= run.Text.Length)
-                                break;
-                        }
-                    }
-                }
-            }
-
+            Editing = true;
+            TextChecking();
             Editing = false;
+
+            //ClearSearchMark();
+            //Editing = true; // must set true again because claar search change it
+
+            //for (int j = 0; j < tbxCode.Document.Blocks.Count; j++)
+            //{
+            //    Paragraph item = tbxCode.Document.Blocks.ElementAt(j) as Paragraph;
+
+            //    for (int i = 0; i < item.Inlines.Count; i++)
+            //    {
+            //        int k = 0;
+            //        Run run = item.Inlines.ElementAt(i) as Run;
+
+            //        if (casesensitive)
+            //        {
+            //            while ((k = run.Text.IndexOf(text, k)) != -1)
+            //            {
+            //                if (single)
+            //                {
+            //                    if (k > 0)
+            //                    {
+            //                        if (Char.IsLetterOrDigit(run.Text[k - 1]))
+            //                        {
+            //                            k += text.Length;
+            //                            continue;
+            //                        }
+            //                    }
+
+            //                    if (k + text.Length < run.Text.Length - 1)
+            //                    {
+            //                        if (Char.IsLetterOrDigit(run.Text[k + text.Length]))
+            //                        {
+            //                            k += text.Length;
+            //                            continue;
+            //                        }
+            //                    }
+            //                }
+
+            //                TextPointer start = run.ContentStart.GetPositionAtOffset(k);
+            //                TextPointer end = start.GetPositionAtOffset(text.Length);
+            //                new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, FindMarkBrush);
+            //                k += text.Length;
+
+            //                if (k >= run.Text.Length)
+            //                    break;
+            //            }
+            //        }
+            //        else
+            //        {
+            //            while ((k = run.Text.ToLower().IndexOf(text, k)) != -1)
+            //            {
+            //                if (single)
+            //                {
+            //                    if (k > 0)
+            //                    {
+            //                        if (Char.IsLetterOrDigit(run.Text[k - 1]))
+            //                        {
+            //                            k += text.Length;
+            //                            continue;
+            //                        }
+            //                    }
+
+            //                    if (k + text.Length < run.Text.Length - 1)
+            //                    {
+            //                        if (Char.IsLetterOrDigit(run.Text[k + text.Length]))
+            //                        {
+            //                            k += text.Length;
+            //                            continue;
+            //                        }
+            //                    }
+            //                }
+
+            //                TextPointer start = run.ContentStart.GetPositionAtOffset(k);
+            //                TextPointer end = start.GetPositionAtOffset(text.Length);
+            //                new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, FindMarkBrush);
+            //                k += text.Length;
+
+            //                if (k >= run.Text.Length)
+            //                    break;
+            //            }
+            //        }
+            //    }
+            //}
+
+            //Editing = false;
         }
 
         public int TextReplace()
@@ -2326,7 +2363,7 @@ namespace CCodeEditorLib
             return ReplaceText(tbxFind.Text, tbxReplace.Text);
         }
 
-        private int ReplaceText(string text, string replace)
+        public int ReplaceText(string text, string replace, bool first = false)
         {
             int matches = 0;
             // call this function for recrate runs
@@ -2348,6 +2385,9 @@ namespace CCodeEditorLib
                         new TextRange(start, end).Text = replace;
                         k += text.Length;
                         matches++;
+
+                        if (first)
+                            return matches;
 
                         if (k >= run.Text.Length)
                             break;
@@ -2457,12 +2497,22 @@ namespace CCodeEditorLib
 
         private void CommentCode()
         {
-            TextUtils.GetFirstOfCurrentLineWithoutSpace(tbxCode.CaretPosition).InsertTextInRun("//");
+            TextRange trange = new TextRange(tbxCode.Selection.Start, tbxCode.Selection.End);
+
+            if (string.IsNullOrEmpty(trange?.Text))
+                TextUtils.GetFirstOfCurrentLineWithoutSpace(tbxCode.CaretPosition).InsertTextInRun("//");
+            else
+                trange.Text = "/*" + trange.Text + "*/";
         }
 
         private void UncommentCode()
         {
-            TextUtils.ReplaceInCurrentLine(tbxCode, "//", "");
+            TextRange trange = new TextRange(tbxCode.Selection.Start, tbxCode.Selection.End);
+
+            if (string.IsNullOrEmpty(trange?.Text))
+                TextUtils.ReplaceInCurrentLine(tbxCode, "//", "");
+            else
+                trange.Text = trange.Text.Replace("/*", "").Replace("*/", "").Replace("//", "");
         }
     }
 }

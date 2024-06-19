@@ -458,7 +458,9 @@ namespace CCodeEditorLib.Source
 
             string str = range.Text;
             int position = str.IndexOf(txt);
-            range.Text = str.Substring(0, position) + replace + str.Substring(position + txt.Length);
+
+            if (position > -1)
+                range.Text = str.Substring(0, position) + replace + str.Substring(position + txt.Length);
         }
     }
 }
