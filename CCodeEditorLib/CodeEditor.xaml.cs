@@ -37,6 +37,7 @@ namespace CCodeEditorLib
         private int CaretPosLineFirstLen = 0;
         private string FilterWord = "";
         private string FindWord = null;
+        private Key InputKey = Key.None;
         private Typeface Typeface;
         private Keyword CurrentKeyword;
         private TextPointer StartWord;
@@ -55,8 +56,8 @@ namespace CCodeEditorLib
         public static char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';', '#' };
         private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
 
-        private Stack<string> UndoStack = new Stack<string>();
-        private Stack<string> RedoStack = new Stack<string>();
+        private Stack<UndoRedoCode> UndoStack = new Stack<UndoRedoCode>();
+        private Stack<UndoRedoCode> RedoStack = new Stack<UndoRedoCode>();
 
         private DispatcherTimer Timer; // set line numbers and code color and ...
         private DispatcherTimer CodeTimer = null; // for format code
@@ -126,7 +127,7 @@ namespace CCodeEditorLib
                     CheckScrollBarVisibility();
 
                     if (!string.IsNullOrEmpty(CodeText))
-                        UndoStack.Push(CodeText);
+                        UndoStack.Push(new UndoRedoCode(CodeText, tbxCode.CaretPosition));
 
                     Editing = false;
                 }
@@ -150,7 +151,7 @@ namespace CCodeEditorLib
         public CodeEditor()
         {
             InitializeComponent();
-
+            UndoStack.Push(new UndoRedoCode("", tbxCode.CaretPosition));
             Typeface = new Typeface(tbxCode.FontFamily, tbxCode.FontStyle, tbxCode.FontWeight, tbxCode.FontStretch);
 
             for (int i = 0; i < 100; i++)
@@ -178,7 +179,7 @@ namespace CCodeEditorLib
                     }
 
                     CaretPosTimer = new DispatcherTimer();
-                    CaretPosTimer.Interval = new TimeSpan(0, 0, 0, 0, 100);
+                    CaretPosTimer.Interval = new TimeSpan(0, 0, 0, 0, 50);
                     CaretPosTimer.Tick += CaretPosTimer_Tick;
                 }
 
@@ -202,7 +203,7 @@ namespace CCodeEditorLib
                 bool res = syntax.Check("SetValue(10);");
 
                 Timer = new DispatcherTimer();
-                Timer.Interval = new TimeSpan(0, 0, 0, 0, 100);
+                Timer.Interval = new TimeSpan(0, 0, 0, 0, 50);
                 Timer.Tick += Timer_Tick;
 
                 lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
@@ -220,6 +221,9 @@ namespace CCodeEditorLib
 
             if (sub > 0)
             {
+                if (InputKey == Key.Oem1)
+                    sub++;
+
                 for (int i = 0; i < sub; i++)
                 {
                     TextPointer tp = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
@@ -228,6 +232,8 @@ namespace CCodeEditorLib
                         tbxCode.CaretPosition = tp;
                 }
             }
+
+            InputKey = Key.None;
             //else
             //{
             //    TextPointer tp = TextUtils.GetEndOfCurrentLine(tbxCode.CaretPosition);
@@ -249,7 +255,7 @@ namespace CCodeEditorLib
                 return;
 
             //var text = e.SourceDataObject.GetData(DataFormats.UnicodeText) as string;
-            StartFormatCode = true;
+            //StartFormatCode = true;
         }
 
         public EditorCodeType CodeType
@@ -548,7 +554,7 @@ namespace CCodeEditorLib
                 Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
                 if (!string.IsNullOrEmpty(CodeText))
-                    UndoStack.Push(CodeText);
+                    UndoStack.Push(new UndoRedoCode(CodeText, tbxCode.CaretPosition));
 
                 Timer.Stop();
                 Timer.Start();
@@ -1364,6 +1370,7 @@ namespace CCodeEditorLib
 
         private void tbxCode_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            InputKey = e.Key;
             CtrlHomeCounter--;
 
             if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
@@ -1384,7 +1391,10 @@ namespace CCodeEditorLib
                     return;
                 }
                 if (e.Key == Key.K)
+                {
                     Format();
+                    UndoStack.Push(new UndoRedoCode(CodeText, tbxCode.CaretPosition));
+                }
                 else if (e.Key == Key.Enter)
                     TextUtils.InsertEmptyLine(tbxCode);
                 else if (e.Key == Key.D)
@@ -1422,7 +1432,14 @@ namespace CCodeEditorLib
                     }
                 }
                 else if (e.Key == Key.OemOpenBrackets || e.Key == Key.OemCloseBrackets)
+                {
+                    popSuggestion.IsOpen = false;
                     StartFormatCode = true;
+                }
+                else if (e.Key == Key.D0 || e.Key == Key.D9)
+                {
+                    popSuggestion.IsOpen = false;
+                }
                 else
                     CaptureInput(e.Key);
             }
@@ -1454,7 +1471,10 @@ namespace CCodeEditorLib
                     StartFormatCode = true;
                 }
                 else if (e.Key == Key.Oem1)
+                {
+                    popSuggestion.IsOpen = false;
                     StartFormatCode = true;
+                }
                 else if (e.Key == Key.Right || e.Key == Key.Left)
                     popSuggestion.IsOpen = false;
                 else if (e.Key == Key.F3)
@@ -1677,7 +1697,40 @@ namespace CCodeEditorLib
                     lstKeyword.Items.Filter = null;
 
                 if (lstKeyword.Items.Count > 0)
-                    lstKeyword.SelectedIndex = 0;
+                {
+                    int idx = -1;
+                    lstKeyword.SelectedIndex = -1;
+
+                    foreach (Keyword item in lstKeyword.Items)
+                    {
+                        idx++;
+
+                        if (item.Key == FilterWord)
+                        {
+                            lstKeyword.SelectedIndex = idx;
+                            break;
+                        }
+                    }
+
+                    if (lstKeyword.SelectedIndex == -1)
+                    {
+                        idx = -1;
+
+                        foreach (Keyword item in lstKeyword.Items)
+                        {
+                            idx++;
+
+                            if (item.Key.StartsWith(FilterWord))
+                            {
+                                lstKeyword.SelectedIndex = idx;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (lstKeyword.SelectedIndex == -1)
+                        lstKeyword.SelectedIndex = 0;
+                }
                 else
                     // filtered list is empty
                     popSuggestion.IsOpen = false;
@@ -1743,16 +1796,17 @@ namespace CCodeEditorLib
                 if (UndoStack.Count > 0)
                 {
                     Editing = true;
-                    CodeText = UndoStack.Pop();
-                    RedoStack.Push(CodeText);
+                    UndoRedoCode urc = UndoStack.Pop();
+                    RedoStack.Push(urc);
 
                     // pop again when undo action is false
                     if (!UndoAction && UndoStack.Count > 0)
                     {
-                        CodeText = UndoStack.Pop();
-                        RedoStack.Push(CodeText);
+                        urc = UndoStack.Pop();
+                        RedoStack.Push(urc);
                     }
 
+                    CodeText = urc.Code;
                     Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
                     TextChecking();
@@ -1763,6 +1817,8 @@ namespace CCodeEditorLib
                         XmlChanged?.Invoke(this, CodeText);
                     else
                         TextChanged?.Invoke(this, null);
+
+                    //tbxCode.CaretPosition = urc.CaretPosition;
                 }
 
                 UndoAction = true;
@@ -1780,8 +1836,9 @@ namespace CCodeEditorLib
                 Editing = true;
                 UndoAction = false;
 
-                CodeText = RedoStack.Pop();
-                UndoStack.Push(CodeText);
+                UndoRedoCode urc = RedoStack.Pop();
+                UndoStack.Push(urc);
+                CodeText = urc.Code;
 
                 Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
@@ -1793,6 +1850,8 @@ namespace CCodeEditorLib
                     XmlChanged?.Invoke(this, CodeText);
                 else
                     TextChanged?.Invoke(this, null);
+
+                //tbxCode.CaretPosition = urc.CaretPosition;
             }
         }
 
@@ -1800,6 +1859,8 @@ namespace CCodeEditorLib
         {
             UndoStack.Clear();
             RedoStack.Clear();
+
+            UndoStack.Push(new UndoRedoCode("", tbxCode.CaretPosition));
         }
 
         private void FindCurrentTag()
@@ -2513,6 +2574,11 @@ namespace CCodeEditorLib
                 TextUtils.ReplaceInCurrentLine(tbxCode, "//", "");
             else
                 trange.Text = trange.Text.Replace("/*", "").Replace("*/", "").Replace("//", "");
+        }
+
+        private void tbxCode_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            TextUtils.SelectCurrentWord(tbxCode);
         }
     }
 }

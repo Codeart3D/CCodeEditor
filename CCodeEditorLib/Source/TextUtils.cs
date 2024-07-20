@@ -151,14 +151,14 @@ namespace CCodeEditorLib.Source
         public static TextPointer GetFirstOfCurrentLineWithoutSpace(TextPointer caretPos)
         {
             TextPointer pos = null;
-            TextPointer nex = caretPos.GetLineStartPosition(0); 
+            TextPointer nex = caretPos.GetLineStartPosition(0);
 
             do
             {
                 pos = nex;
                 nex = pos.GetNextInsertionPosition(LogicalDirection.Forward);
             }
-            while (string.IsNullOrWhiteSpace(new TextRange(pos, nex).Text));
+            while (string.IsNullOrWhiteSpace(new TextRange(pos, nex).Text) && new TextRange(pos, nex).Text != "\r\n");
 
             return pos;
         }
@@ -192,7 +192,12 @@ namespace CCodeEditorLib.Source
 
         public static void SelectFromCaretToStartOfLine(RichTextBox rtb)
         {
-            rtb.Selection.Select(rtb.CaretPosition, GetFirstOfCurrentLineWithoutSpace(rtb.CaretPosition));
+            TextPointer fp = GetFirstOfCurrentLineWithoutSpace(rtb.CaretPosition);
+
+            if (rtb.CaretPosition.GetOffsetToPosition(fp) != rtb.CaretPosition.GetOffsetToPosition(rtb.CaretPosition))
+                rtb.Selection.Select(rtb.CaretPosition, fp);
+            else
+                rtb.Selection.Select(rtb.CaretPosition, rtb.CaretPosition.GetLineStartPosition(0));
         }
 
         public static void InsertEmptyLine(RichTextBox rtb)
@@ -461,6 +466,88 @@ namespace CCodeEditorLib.Source
 
             if (position > -1)
                 range.Text = str.Substring(0, position) + replace + str.Substring(position + txt.Length);
+        }
+
+        public static bool IsCharacter(string t)
+        {
+            if (t == " " || t == ";" || t == "\r\n" || t == "(" || t == ")" || t == "<" || t == ">"
+                 || t == "," || t == "." || t == "!" || t == ">" || t == "#" || t == "*" || t == "&"
+                 || t == "*" || t == "^" || t == "@" || t == "/" || t == "\\" || t == "\"" || t == "\'"
+                 || t == ":" || t == "?" || t == "$" || t == "-" || t == "+" || t == "=" || t == "{"
+                 || t == "}" || t == "[" || t == "]" || t == "|")
+                return true;
+
+            return false;
+        }
+
+        public static bool IsNumber(string t)
+        {
+            if (t == "0" || t == "1" || t == "2" || t == "3" || t == "4" || t == "5" || t == "6" || t == "7" || t == "8" || t == "9")
+                return true;
+
+            return false;
+        }
+
+        public static void SelectCurrentWord(RichTextBox rtb)
+        {
+            string txt;
+            string pre = null;
+            TextPointer end = null;
+            TextPointer start = null;
+            TextPointer nex = rtb.CaretPosition;
+
+            do
+            {
+                start = nex;
+                nex = start.GetNextInsertionPosition(LogicalDirection.Backward);
+
+                if (nex == null)
+                    break;
+
+                txt = new TextRange(start, nex).Text;
+
+                if (txt == ".")
+                {
+                    if (pre == null || IsNumber(pre))
+                    {
+                        pre = ".";
+                        txt = "";
+                        continue;
+                    }
+                }
+
+                pre = txt;
+            }
+            while (!IsCharacter(txt));
+
+            pre = null;
+            nex = rtb.CaretPosition;
+
+            do
+            {
+                end = nex;
+                nex = end.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                if (nex == null)
+                    break;
+
+                txt = new TextRange(nex, end).Text;
+
+                if (txt == ".")
+                {
+                    if (pre == null || IsNumber(pre))
+                    {
+                        pre = ".";
+                        txt = "";
+                        continue;
+                    }
+                }
+
+                pre = txt;
+            }
+            while (!IsCharacter(txt));
+
+            rtb.Selection.Select(start, end);
         }
     }
 }

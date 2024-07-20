@@ -75,6 +75,7 @@
     <Compile Include="Source\TextUtils.cs" />
     <Compile Include="Source\TypeValue.cs" />
     <Compile Include="Source\UndoRedoAction.cs" />
+    <Compile Include="Source\UndoRedoCode.cs" />
     <Compile Include="Source\XMLParser.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

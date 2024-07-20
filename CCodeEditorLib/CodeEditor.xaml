@@ -41,7 +41,7 @@
             <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5"
                      AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown" SizeChanged="TbxCode_SizeChanged"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsUndoEnabled="False" SelectionChanged="TbxCode_SelectionChanged"
-                         ScrollViewer.ScrollChanged="TbxCode_ScrollChanged" FontFamily="{StaticResource Consolas}">
+                         ScrollViewer.ScrollChanged="TbxCode_ScrollChanged" PreviewMouseDoubleClick="tbxCode_PreviewMouseDoubleClick" FontFamily="{StaticResource Consolas}">
                 <RichTextBox.Resources>
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0"/>
@@ -134,7 +134,7 @@
                          BorderThickness="0" BorderBrush="Transparent" Background="Transparent" 
                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" TextWrapping="WrapWithOverflow"/>
 
-                <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="#555" Margin="5,0" FontSize="10" FontWeight="Bold" Text="Codeart Editor Version 1.7"/>
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="#555" Margin="5,0" FontSize="10" FontWeight="Bold" Text="Codeart Editor Version 1.9"/>
                 <Button Grid.Column="2" Width="20" Height="20" Content="_" VerticalAlignment="Top" Margin="5" Background="Transparent" Name="btnClearError" Click="BtnClearError_Click"/>
             </Grid>
         </Border>
