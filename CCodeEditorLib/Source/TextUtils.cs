@@ -508,7 +508,26 @@ namespace CCodeEditorLib.Source
 
                 if (txt == ".")
                 {
-                    if (pre == null || IsNumber(pre))
+                    if (pre == null)
+                    {
+                        start = nex;
+                        nex = start.GetNextInsertionPosition(LogicalDirection.Backward);
+
+                        if (nex == null)
+                            break;
+
+                        txt = new TextRange(start, nex).Text;
+
+                        if (IsNumber(txt))
+                        {
+                            pre = txt;
+                            txt = "";
+                            continue;
+                        }
+                        else
+                            break;
+                    }
+                    else if (IsNumber(pre))
                     {
                         pre = ".";
                         txt = "";
@@ -535,7 +554,26 @@ namespace CCodeEditorLib.Source
 
                 if (txt == ".")
                 {
-                    if (pre == null || IsNumber(pre))
+                    if (pre == null)
+                    {
+                        end = nex;
+                        nex = end.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                        if (nex == null)
+                            break;
+
+                        txt = new TextRange(nex, end).Text;
+
+                        if (IsNumber(txt))
+                        {
+                            pre = txt;
+                            txt = "";
+                            continue;
+                        }
+                        else
+                            break;
+                    }
+                    else if (IsNumber(pre))
                     {
                         pre = ".";
                         txt = "";
@@ -548,6 +586,112 @@ namespace CCodeEditorLib.Source
             while (!IsCharacter(txt));
 
             rtb.Selection.Select(start, end);
+        }
+
+        public static void CorrectSelection(RichTextBox rtb)
+        {
+            string txt;
+            string pre = null;
+            TextPointer end = null;
+            TextPointer nex = rtb.Selection.Start;
+
+            if (rtb.Selection.Start.CompareTo(rtb.CaretPosition) < 0)
+            {
+                do
+                {
+                    end = nex;
+                    nex = end.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                    if (nex == null)
+                        break;
+
+                    txt = new TextRange(end, nex).Text;
+
+                    if (txt == ".")
+                    {
+                        if (pre == null)
+                        {
+                            end = nex;
+                            nex = end.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                            if (nex == null)
+                                break;
+
+                            txt = new TextRange(end, nex).Text;
+
+                            if (IsNumber(txt))
+                            {
+                                pre = txt;
+                                txt = "";
+                                continue;
+                            }
+                            else
+                                break;
+                        }
+                        else if (IsNumber(pre))
+                        {
+                            pre = ".";
+                            txt = "";
+                            continue;
+                        }
+                    }
+
+                    pre = txt;
+                }
+                while (!IsCharacter(txt));
+
+                rtb.Selection.Select(rtb.Selection.Start, end);
+            }
+            else
+            {
+                pre = null;
+                nex = rtb.Selection.End;
+
+                do
+                {
+                    end = nex;
+                    nex = end.GetNextInsertionPosition(LogicalDirection.Backward);
+
+                    if (nex == null)
+                        break;
+
+                    txt = new TextRange(nex, end).Text;
+
+                    if (txt == ".")
+                    {
+                        if (pre == null)
+                        {
+                            end = nex;
+                            nex = end.GetNextInsertionPosition(LogicalDirection.Backward);
+
+                            if (nex == null)
+                                break;
+
+                            txt = new TextRange(nex, end).Text;
+
+                            if (IsNumber(txt))
+                            {
+                                pre = txt;
+                                txt = "";
+                                continue;
+                            }
+                            else
+                                break;
+                        }
+                        else if (IsNumber(pre))
+                        {
+                            pre = ".";
+                            txt = "";
+                            continue;
+                        }
+                    }
+
+                    pre = txt;
+                }
+                while (!IsCharacter(txt));
+
+                rtb.Selection.Select(rtb.Selection.End, end);
+            }
         }
     }
 }

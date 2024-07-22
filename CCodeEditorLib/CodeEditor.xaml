@@ -22,7 +22,7 @@
 
         <Border Background="#333" Height="1"/>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" ClipToBounds="True">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="40"/>
                 <ColumnDefinition/>
@@ -31,12 +31,14 @@
             <Border Grid.Column="0" Background="#222222"/>
             <Border Grid.Column="1" Background="#272727"/>
 
-            <Grid Name="griLine" ClipToBounds="True">
+            <Grid Name="griLine">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
                     <ColumnDefinition Width="10"/>
                 </Grid.ColumnDefinitions>
             </Grid>
+
+            <Border Grid.Column="1" Background="#1c1c1c" Height="20" Name="borHighlight" VerticalAlignment="Top"/>
 
             <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" Margin="0,5"
                      AcceptsReturn="True" Name="tbxCode" TextChanged="tbxCode_TextChanged" PreviewKeyDown="tbxCode_PreviewKeyDown" SizeChanged="TbxCode_SizeChanged"
@@ -134,7 +136,7 @@
                          BorderThickness="0" BorderBrush="Transparent" Background="Transparent" 
                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" TextWrapping="WrapWithOverflow"/>
 
-                <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="#555" Margin="5,0" FontSize="10" FontWeight="Bold" Text="Codeart Editor Version 1.9"/>
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="#555" Margin="5,0" FontSize="10" FontWeight="Bold" Text="Codeart Editor Version 2.0"/>
                 <Button Grid.Column="2" Width="20" Height="20" Content="_" VerticalAlignment="Top" Margin="5" Background="Transparent" Name="btnClearError" Click="BtnClearError_Click"/>
             </Grid>
         </Border>

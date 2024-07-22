@@ -31,6 +31,7 @@ namespace CCodeEditorLib
         private bool UndoAction = false;
         private bool Formated = false;
         private bool Checking = false;
+        private bool SelectAllFlag = false;
         private bool StartFormatCode = false;
         private int CtrlHomeCounter = 0;
         private int TagCounter = 0;
@@ -63,9 +64,11 @@ namespace CCodeEditorLib
         private DispatcherTimer CodeTimer = null; // for format code
         private DispatcherTimer CaretPosTimer = null; // for format code
 
+        private static SolidColorBrush XMLOpenCloseTagColor = Brushes.White;
+        private static SolidColorBrush XMLTagColor = new SolidColorBrush(Color.FromRgb(75, 183, 134));
         private static SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
         private static SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
-        private static SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(80, 170, 160));
+        private static SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(90, 180, 170));
         public static SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
         private static SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
         // 230, 200, 150 cream gold
@@ -174,7 +177,7 @@ namespace CCodeEditorLib
                     if (CodeType == EditorCodeType.XML)
                     {
                         CodeTimer = new DispatcherTimer();
-                        CodeTimer.Interval = new TimeSpan(0, 0, 10);
+                        CodeTimer.Interval = new TimeSpan(0, 0, 5);
                         CodeTimer.Tick += CodeTimer_Tick;
                     }
 
@@ -343,19 +346,22 @@ namespace CCodeEditorLib
                 {
                     Delimiters = XmlDelimiters;
 
-                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "<", KeywordType.XMLStart, null, false));
-                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "/>", KeywordType.XMLEnd, null, false));
-                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, ">", KeywordType.XMLEnd, null, false));
-                    Keywords.Add(new Keyword(Brushes.PaleGoldenrod, "=", KeywordType.XMLEqual, "=\"\"", false, 1));
+                    Keywords.Add(new Keyword(XMLOpenCloseTagColor, "<", KeywordType.XMLStart, null, false));
+                    Keywords.Add(new Keyword(XMLOpenCloseTagColor, "/>", KeywordType.XMLEnd, null, false));
+                    Keywords.Add(new Keyword(XMLOpenCloseTagColor, ">", KeywordType.XMLEnd, null, false));
+                    Keywords.Add(new Keyword(Brushes.Gray, "=", KeywordType.XMLEqual, "=\"\"", false, 1));
 
 
                     if (Debugger.IsAttached)
                     {
+                        SetXmlRoot(new KeywordClass("Screen", null, null));
+
                         List<string> basep = new List<string>();
                         basep.Add("X");
                         basep.Add("Y");
                         basep.Add("Width");
                         basep.Add("Height");
+                        basep.Add("Name");
 
                         List<string> pi = new List<string>();
                         pi.Add("Color");
@@ -416,26 +422,26 @@ namespace CCodeEditorLib
 
         public void SetXmlRoot(KeywordClass root)
         {
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{root.Name}>", KeywordType.XMLRootTag) { KeyName = root.Name, Suggestions = root.Properties, BaseSuggestions = root.BaseProperties });
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{root.Name}>", KeywordType.XMLEndTag));
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{root.Name}", KeywordType.XMLRootTag, null, false));
+            Keywords.Add(new Keyword(XMLTagColor, $"<{root.Name}>", KeywordType.XMLRootTag) { KeyName = root.Name, Suggestions = root.Properties, BaseSuggestions = root.BaseProperties });
+            Keywords.Add(new Keyword(XMLTagColor, $"</{root.Name}>", KeywordType.XMLEndTag));
+            Keywords.Add(new Keyword(XMLTagColor, $"<{root.Name}", KeywordType.XMLRootTag, null, false));
         }
 
         public void SetXmlClasses(List<KeywordClass> classes)
         {
             foreach (var item in classes)
             {
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name}/>", KeywordType.XMLTag, null, true, 2) { KeyName = item.Name, Suggestions = item.Properties, BaseSuggestions = item.BaseProperties });
-                Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{item.Name}", KeywordType.XMLTag, null, false));
+                Keywords.Add(new Keyword(XMLTagColor, $"<{item.Name}/>", KeywordType.XMLTag, null, true, 2) { KeyName = item.Name, Suggestions = item.Properties, BaseSuggestions = item.BaseProperties });
+                Keywords.Add(new Keyword(XMLTagColor, $"<{item.Name}", KeywordType.XMLTag, null, false));
             }
         }
 
         public void SetXmlClassWithChild(KeywordClass cclass)
         {
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{cclass.Name}>", KeywordType.XMLTag, null, true, 1)
+            Keywords.Add(new Keyword(XMLTagColor, $"<{cclass.Name}>", KeywordType.XMLTag, null, true, 1)
             { KeyName = cclass.Name, Suggestions = cclass.Properties, BaseSuggestions = cclass.BaseProperties, InsertAfter = $"</{cclass.Name}>" });
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"</{cclass.Name}>", KeywordType.XMLEndTag, null, true));
-            Keywords.Add(new Keyword(Brushes.PaleGoldenrod, $"<{cclass.Name}", KeywordType.XMLTag, null, false));
+            Keywords.Add(new Keyword(XMLTagColor, $"</{cclass.Name}>", KeywordType.XMLEndTag, null, true));
+            Keywords.Add(new Keyword(XMLTagColor, $"<{cclass.Name}", KeywordType.XMLTag, null, false));
         }
 
         public List<Keyword> GetXmlAttrib(List<string> attribs)
@@ -443,7 +449,7 @@ namespace CCodeEditorLib
             List<Keyword> atts = new List<Keyword>();
 
             foreach (var item in attribs)
-                atts.Add(new Keyword(Brushes.LightGreen, item, KeywordType.XMLAttrib, $"{item}=\"\"", true, 1));
+                atts.Add(new Keyword(XMLTagColor, item, KeywordType.XMLAttrib, $"{item}=\"\"", true, 1));
 
             return atts;
         }
@@ -479,15 +485,15 @@ namespace CCodeEditorLib
 
             if (IsEnableCodeFormatter)
             {
-                if (StartFormatCode)
-                {
-                    StartFormatCode = false;
-                    Format(); // use Format for scroll checking
-                }
-                else if (CodeType == EditorCodeType.XML)
+                if (CodeType == EditorCodeType.XML)
                 {
                     CodeTimer.Stop();
                     CodeTimer.Start();
+                }
+                else if (StartFormatCode)
+                {
+                    StartFormatCode = false;
+                    Format(); // use Format for scroll checking
                 }
             }
 
@@ -1259,6 +1265,60 @@ namespace CCodeEditorLib
             return code;
         }
 
+        private Run CheckOpenCloseTag(string part, Keyword key, Paragraph paragraph)
+        {
+            Run run = new Run(part);
+            run.Foreground = key.Color;
+
+            if (part[0] == '<')
+            {
+                if (part[1] == '/')
+                {
+                    run.Text = "</";
+                    run.Foreground = XMLOpenCloseTagColor;
+                    paragraph.Inlines.Add(run);
+                    part = part.Remove(0, 2);
+                }
+                else
+                {
+                    run.Text = "<";
+                    run.Foreground = XMLOpenCloseTagColor;
+                    paragraph.Inlines.Add(run);
+                    part = part.Remove(0, 1);
+                }
+            }
+
+            if (part.EndsWith("/>"))
+            {
+                int fidx = part.LastIndexOf('/');
+                part = part.Remove(fidx, part.Length - fidx);
+                run = new Run(part);
+                run.Foreground = key.Color;
+                paragraph.Inlines.Add(run);
+
+                run = new Run("/>");
+                run.Foreground = XMLOpenCloseTagColor;
+            }
+            else if (part.EndsWith(">"))
+            {
+                int fidx = part.LastIndexOf('>');
+                part = part.Remove(fidx, part.Length - fidx);
+                run = new Run(part);
+                run.Foreground = key.Color;
+                paragraph.Inlines.Add(run);
+
+                run = new Run(">");
+                run.Foreground = XMLOpenCloseTagColor;
+            }
+            else
+            {
+                run = new Run(part);
+                run.Foreground = key.Color;
+            }
+
+            return run;
+        }
+
         private void CheckKeywordInLine(bool sign, char c, string part, Paragraph paragraph)
         {
             if (!string.IsNullOrEmpty(part))
@@ -1301,7 +1361,7 @@ namespace CCodeEditorLib
                                         paragraph.Inlines.Add(run);
                                         // then add name
                                         run = new Run("Name");
-                                        run.Foreground = Brushes.LightGreen;
+                                        run.Foreground = key.Color;
                                         paragraph.Inlines.Add(run);
                                         run = new Run("=\"" + TagNames[TagCounter] + "\"");
 
@@ -1319,9 +1379,17 @@ namespace CCodeEditorLib
                                         }
                                     }
                                 }
+                                else
+                                    run = CheckOpenCloseTag(part, key, paragraph);
 
                                 TagCounter++;
                             }
+                            else
+                                run = CheckOpenCloseTag(part, key, paragraph);
+                        }
+                        else if (key.Type == KeywordType.XMLRootTag || key.Type == KeywordType.XMLEndTag)
+                        {
+                            run = CheckOpenCloseTag(part, key, paragraph);
                         }
                     }
                 }
@@ -1413,6 +1481,8 @@ namespace CCodeEditorLib
                     DisplayFindPane();
                 else if (e.Key == Key.Oem2)
                     Comment();
+                else if (e.Key == Key.A)
+                    SelectAllFlag = true;
 
                 popSuggestion.IsOpen = false;
                 lstKeyword.Items.Filter = null;
@@ -1878,7 +1948,9 @@ namespace CCodeEditorLib
                     {
                         lstKeyword.Items.Filter = null;
                         AttribList = new List<Keyword>();
-                        AttribList.AddRange(key.Suggestions);
+
+                        if (key.Suggestions != null)
+                            AttribList.AddRange(key.Suggestions);
 
                         if (key.BaseSuggestions != null)
                             AttribList.AddRange(key.BaseSuggestions);
@@ -1895,10 +1967,30 @@ namespace CCodeEditorLib
             }
         }
 
+        private void UpdateLineHighlight()
+        {
+            Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
+            borHighlight.Margin = new Thickness(0, rect.Top + 3, 0, 0);
+        }
+
         private void TbxCode_SelectionChanged(object sender, RoutedEventArgs e)
         {
             if (CodeType == EditorCodeType.XML)
                 FindCurrentTag();
+
+            if (!string.IsNullOrEmpty(tbxCode.Selection.Text) && !Editing)
+            {
+                if (Keyboard.Modifiers == ModifierKeys.Control && !SelectAllFlag)
+                {
+                    Editing = true;
+                    TextUtils.CorrectSelection(tbxCode);
+                    Editing = false;
+                }
+
+                SelectAllFlag = false;
+            }
+
+            UpdateLineHighlight();
         }
 
         private void LstKeyword_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -2283,6 +2375,7 @@ namespace CCodeEditorLib
         private void TbxCode_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             SetLineNumber();
+            UpdateLineHighlight();
         }
 
         public void Save(string fullpath)
