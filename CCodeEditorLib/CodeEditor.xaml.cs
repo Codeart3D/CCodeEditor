@@ -1970,7 +1970,7 @@ namespace CCodeEditorLib
         private void UpdateLineHighlight()
         {
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
-            borHighlight.Margin = new Thickness(0, rect.Top + 3, 0, 0);
+            borHighlight.Margin = new Thickness(0, rect.Top + 4, 0, 0);
         }
 
         private void TbxCode_SelectionChanged(object sender, RoutedEventArgs e)
@@ -2672,6 +2672,12 @@ namespace CCodeEditorLib
         private void tbxCode_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             TextUtils.SelectCurrentWord(tbxCode);
+        }
+
+        private void TbxCode_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+                TextUtils.SelectCurrentWord(tbxCode);
         }
     }
 }
