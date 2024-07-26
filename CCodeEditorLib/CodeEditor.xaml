@@ -31,7 +31,7 @@
             <Border Grid.Column="0" Background="#222222"/>
             <Border Grid.Column="1" Background="#272727"/>
 
-            <Border Grid.ColumnSpan="2" Background="#1c1c1c" Height="18" Name="borHighlight" VerticalAlignment="Top"/>
+            <Border Grid.ColumnSpan="2" Background="#181818" Height="18" Name="borHighlight" VerticalAlignment="Top"/>
             
             <Grid Name="griLine">
                 <Grid.ColumnDefinitions>

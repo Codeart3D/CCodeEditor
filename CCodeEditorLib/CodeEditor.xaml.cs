@@ -26,6 +26,7 @@ namespace CCodeEditorLib
     /// </summary>
     public partial class CodeEditor : UserControl
     {
+        private bool Lock = false;
         private bool InitOnce = false;
         private bool Editing = false;
         private bool UndoAction = false;
@@ -68,7 +69,7 @@ namespace CCodeEditorLib
         private static SolidColorBrush XMLTagColor = new SolidColorBrush(Color.FromRgb(75, 183, 134));
         private static SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
         private static SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
-        private static SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(90, 180, 170));
+        private static SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(100, 200, 180));
         public static SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
         private static SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
         // 230, 200, 150 cream gold
@@ -138,7 +139,17 @@ namespace CCodeEditorLib
         }
 
         public string Caption { get { return tbkCaption.Text; } set { tbkCaption.Text = value; } }
-        public bool IsReadOnly { get { return tbxCode.IsReadOnly; } set { tbxCode.IsReadOnly = value; tbxCode.Opacity = value ? 0.6 : 1.0; } }
+        public bool IsReadOnly
+        {
+            get { return Lock; }
+
+            set
+            {
+                Lock = value;
+                tbxCode.IsReadOnly = value;
+                tbxCode.Opacity = value ? 0.6 : 1.0;
+            }
+        }
 
         public void Clear()
         {
@@ -662,7 +673,7 @@ namespace CCodeEditorLib
 
         private void DisplaySuggestionPopup()
         {
-            if (!popSuggestion.IsOpen)
+            if (!popSuggestion.IsOpen && !Lock)
             {
                 FindBeginOfWord();
                 Rect rect = StartWord.GetCharacterRect(LogicalDirection.Backward);
