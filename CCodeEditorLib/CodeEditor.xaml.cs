@@ -34,6 +34,8 @@ namespace CCodeEditorLib
         private bool Checking = false;
         private bool SelectAllFlag = false;
         private bool StartFormatCode = false;
+        private bool CaseSensitive = false;
+        private bool SingleWord = false;
         private int CtrlHomeCounter = 0;
         private int TagCounter = 0;
         private int CaretPosLineFirstLen = 0;
@@ -531,6 +533,8 @@ namespace CCodeEditorLib
                 CheckCodeKeyword();
             else
                 CheckXMLKeyword();
+
+            FindAllWords();
         }
 
         private void SetLineNumber()
@@ -1338,8 +1342,8 @@ namespace CCodeEditorLib
                 Keyword key = Keywords.Where(p => p.Key == part).FirstOrDefault();
 
                 // Find Highlight
-                if (FindWord != null && part == FindWord)
-                    run.Background = FindMarkBrush;
+                //if (FindWord != null && part == FindWord)
+                //    run.Background = FindMarkBrush;
 
                 if (key != null)
                 {
@@ -1567,7 +1571,7 @@ namespace CCodeEditorLib
                         popSuggestion.IsOpen = false;
                         e.Handled = true;
                     }
-                    else if (borFind.Visibility == Visibility.Visible)
+                    else if (FindWord != null)
                     {
                         ExitSearch();
                         e.Handled = true;
@@ -2421,6 +2425,45 @@ namespace CCodeEditorLib
             rowError.Height = new GridLength(0, GridUnitType.Auto);
         }
 
+        private void FindAllWords()
+        {
+            if (!string.IsNullOrEmpty(FindWord))
+            {
+                string pattern;
+                TextPointer pointer = tbxCode.Document.ContentStart;
+
+                RegexOptions op = RegexOptions.Singleline;
+
+                if (!CaseSensitive)
+                    op |= RegexOptions.IgnoreCase;
+
+                if (SingleWord)
+                    pattern = @"\b" + FindWord + @"\b";
+                else
+                    pattern = FindWord;
+
+                while (pointer != null)
+                {
+                    if (pointer.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                    {
+                        string textRun = pointer.GetTextInRun(LogicalDirection.Forward);
+                        MatchCollection matches = Regex.Matches(textRun, pattern, op);
+
+                        foreach (Match match in matches)
+                        {
+                            int startIndex = match.Index;
+                            int length = match.Length;
+                            TextPointer start = pointer.GetPositionAtOffset(startIndex);
+                            TextPointer end = start.GetPositionAtOffset(length);
+                            new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, FindMarkBrush);
+                        }
+                    }
+
+                    pointer = pointer.GetNextContextPosition(LogicalDirection.Forward);
+                }
+            }
+        }
+
         private void SearchText(string text = null, bool casesensitive = false, bool single = false)
         {
             Editing = true;
@@ -2428,12 +2471,13 @@ namespace CCodeEditorLib
             if (text == null)
                 text = GetCurrentString();
 
-            if (!casesensitive)
-                text = text.ToLower();
+            //if (!casesensitive)
+            //    text = text.ToLower();
 
+            SingleWord = single;
+            CaseSensitive = casesensitive;
             FindWord = text;
 
-            Editing = true;
             TextChecking();
             Editing = false;
 
@@ -2530,37 +2574,49 @@ namespace CCodeEditorLib
 
         public int ReplaceText(string text, string replace, bool first = false)
         {
-            int matches = 0;
-            // call this function for recrate runs
-            ClearSearchMark();
-
-            for (int j = 0; j < tbxCode.Document.Blocks.Count; j++)
+            int matchecnt = 0;
+            
+            if (!string.IsNullOrEmpty(text))
             {
-                Paragraph item = tbxCode.Document.Blocks.ElementAt(j) as Paragraph;
+                string pattern;
+                TextPointer pointer = tbxCode.Document.ContentStart;
 
-                for (int i = 0; i < item.Inlines.Count; i++)
+                RegexOptions op = RegexOptions.Singleline;
+
+                if (!CaseSensitive)
+                    op |= RegexOptions.IgnoreCase;
+
+                if (SingleWord)
+                    pattern = @"\b" + text + @"\b";
+                else
+                    pattern = text;
+
+                while (pointer != null)
                 {
-                    int k = 0;
-                    Run run = item.Inlines.ElementAt(i) as Run;
-
-                    while ((k = run.Text.IndexOf(text, k)) != -1)
+                    if (pointer.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
                     {
-                        TextPointer start = run.ContentStart.GetPositionAtOffset(k);
-                        TextPointer end = start.GetPositionAtOffset(text.Length);
-                        new TextRange(start, end).Text = replace;
-                        k += text.Length;
-                        matches++;
+                        string textRun = pointer.GetTextInRun(LogicalDirection.Forward);
+                        MatchCollection matches = Regex.Matches(textRun, pattern, op);
 
-                        if (first)
-                            return matches;
+                        foreach (Match match in matches)
+                        {
+                            matchecnt++;
+                            int startIndex = match.Index;
+                            int length = match.Length;
+                            TextPointer start = pointer.GetPositionAtOffset(startIndex);
+                            TextPointer end = start.GetPositionAtOffset(length);
+                            new TextRange(start, end).Text = replace;
 
-                        if (k >= run.Text.Length)
-                            break;
+                            if (first)
+                                return matchecnt;
+                        }
                     }
+
+                    pointer = pointer.GetNextContextPosition(LogicalDirection.Forward);
                 }
             }
 
-            return matches;
+            return matchecnt;
         }
 
         private string GetCurrentString()
@@ -2616,7 +2672,11 @@ namespace CCodeEditorLib
 
         private void ExitSearch()
         {
-            ClearSearchMark();
+            FindWord = null;
+            //ClearSearchMark();
+            Editing = true;
+            TextChecking();
+            Editing = false;
             borFind.Visibility = Visibility.Collapsed;
         }
 
