@@ -158,7 +158,7 @@ namespace CCodeEditorLib.Source
                 pos = nex;
                 nex = pos.GetNextInsertionPosition(LogicalDirection.Forward);
             }
-            while (string.IsNullOrWhiteSpace(new TextRange(pos, nex).Text) && new TextRange(pos, nex).Text != "\r\n");
+            while (nex != null && string.IsNullOrWhiteSpace(new TextRange(pos, nex).Text) && new TextRange(pos, nex).Text != "\r\n");
 
             return pos;
         }
@@ -486,6 +486,106 @@ namespace CCodeEditorLib.Source
                 return true;
 
             return false;
+        }
+
+        public static string GetCurrentWord(RichTextBox rtb)
+        {
+            string txt;
+            string pre = null;
+            TextPointer end = null;
+            TextPointer start = null;
+            TextPointer nex = rtb.CaretPosition;
+
+            do
+            {
+                start = nex;
+                nex = start.GetNextInsertionPosition(LogicalDirection.Backward);
+
+                if (nex == null)
+                    break;
+
+                txt = new TextRange(start, nex).Text;
+
+                if (txt == ".")
+                {
+                    if (pre == null)
+                    {
+                        start = nex;
+                        nex = start.GetNextInsertionPosition(LogicalDirection.Backward);
+
+                        if (nex == null)
+                            break;
+
+                        txt = new TextRange(start, nex).Text;
+
+                        if (IsNumber(txt))
+                        {
+                            pre = txt;
+                            txt = "";
+                            continue;
+                        }
+                        else
+                            break;
+                    }
+                    else if (IsNumber(pre))
+                    {
+                        pre = ".";
+                        txt = "";
+                        continue;
+                    }
+                }
+
+                pre = txt;
+            }
+            while (!IsCharacter(txt));
+
+            pre = null;
+            nex = rtb.CaretPosition;
+
+            do
+            {
+                end = nex;
+                nex = end.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                if (nex == null)
+                    break;
+
+                txt = new TextRange(nex, end).Text;
+
+                if (txt == ".")
+                {
+                    if (pre == null)
+                    {
+                        end = nex;
+                        nex = end.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                        if (nex == null)
+                            break;
+
+                        txt = new TextRange(nex, end).Text;
+
+                        if (IsNumber(txt))
+                        {
+                            pre = txt;
+                            txt = "";
+                            continue;
+                        }
+                        else
+                            break;
+                    }
+                    else if (IsNumber(pre))
+                    {
+                        pre = ".";
+                        txt = "";
+                        continue;
+                    }
+                }
+
+                pre = txt;
+            }
+            while (!IsCharacter(txt));
+
+            return new TextRange(start, end).Text;
         }
 
         public static void SelectCurrentWord(RichTextBox rtb)

@@ -36,17 +36,24 @@ namespace CCodeEditorLib
         private bool StartFormatCode = false;
         private bool CaseSensitive = false;
         private bool SingleWord = false;
+        private bool MultiLineStarting = false;
+        private bool MultiLineSelector = false;
+        private bool MultiLineDown = false; // down or up direction
         private int CtrlHomeCounter = 0;
         private int TagCounter = 0;
+        private int MultiLineCount = 0;
         private int CaretPosLineFirstLen = 0;
+        private double MultiLineHeight = 15.223333333333335;
         private string FilterWord = "";
         private string FindWord = null;
         private Key InputKey = Key.None;
         private Typeface Typeface;
         private Keyword CurrentKeyword;
+        private Point MultiLineStart = new Point();
         private TextPointer StartWord;
         private TextPointer EndWord;
         private List<string> TagNames;
+        private List<string> MultiLineFirstState = new List<string>();
         private List<Keyword> AttribList;
         private List<LType> Types = new List<LType>();
         private List<Keyword> Keywords = new List<Keyword>();
@@ -74,6 +81,7 @@ namespace CCodeEditorLib
         private static SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(100, 200, 180));
         public static SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
         private static SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
+        private static SolidColorBrush StringColor = new SolidColorBrush(Color.FromRgb(230, 160, 120));
         // 230, 200, 150 cream gold
 
         public List<Keyword> SubSuggestions;
@@ -184,6 +192,7 @@ namespace CCodeEditorLib
             if (!InitOnce)
             {
                 InitOnce = true;
+                tbxCode.Document.PageWidth = 100000;
 
                 if (IsEnableCodeFormatter)
                 {
@@ -567,6 +576,10 @@ namespace CCodeEditorLib
             if (!Editing)
             {
                 CodeText = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).Text;
+
+                if (MultiLineSelector)
+                    InsertToMultipleLine();
+
                 CheckScrollBarVisibility();
 
                 // StartChecking
@@ -591,20 +604,11 @@ namespace CCodeEditorLib
                 if (CodeText != null)
                 {
                     FormattedText ft = new FormattedText(CodeText, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface, tbxCode.FontSize, Brushes.Black);
-                    tbxCode.Document.PageWidth = ft.Width + 12;
-                    tbxCode.HorizontalScrollBarVisibility = (tbxCode.ActualWidth < tbxCode.Document.PageWidth) ? ScrollBarVisibility.Visible : ScrollBarVisibility.Hidden;
+                    double pagewidth = ft.Width + 12;
+                    tbxCode.HorizontalScrollBarVisibility = (tbxCode.ActualWidth < pagewidth) ? ScrollBarVisibility.Visible : ScrollBarVisibility.Hidden;
                 }
                 else
-                {
-                    double w = this.ActualWidth - 20;
-
-                    if (w > 0)
-                        tbxCode.Document.PageWidth = w;
-                    else
-                        tbxCode.Document.PageWidth = 100;
-
                     tbxCode.HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden;
-                }
             }
         }
 
@@ -960,7 +964,7 @@ namespace CCodeEditorLib
                         if (nj == Lines[i].Length)
                         {
                             if (collect_string)
-                                paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
+                                paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = StringColor });
                             else if (collect_comment_slash)
                                 paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightGreen });
                             else if (collect_comment_star)
@@ -1010,14 +1014,14 @@ namespace CCodeEditorLib
                                 k = 1;
 
                                 if (nj == Lines[i].Length)
-                                    paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
+                                    paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = StringColor });
                             }
                             else
                             {
                                 collect_string = false;
                                 word[k] = c;
                                 k++;
-                                paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
+                                paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = StringColor });
                                 k = 0;
                             }
                         }
@@ -1027,7 +1031,7 @@ namespace CCodeEditorLib
                             k++;
 
                             if (nj == Lines[i].Length)
-                                paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightSalmon });
+                                paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = StringColor });
                         }
                         else if (c == '/')
                         {
@@ -1451,6 +1455,11 @@ namespace CCodeEditorLib
             Editing = false;
         }
 
+        private void TbxCode_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            ExitMultiLineSelector();
+        }
+
         private void tbxCode_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             InputKey = e.Key;
@@ -1465,6 +1474,19 @@ namespace CCodeEditorLib
                 }
                 else if (e.Key == Key.Oem2)
                     Uncomment();
+            }
+            else if (Keyboard.Modifiers == (ModifierKeys.Alt | ModifierKeys.Shift))
+            {
+                if (e.SystemKey == Key.Down)
+                {
+                    InsertInMultipleLine(true);
+                    e.Handled = true;
+                }
+                else if (e.SystemKey == Key.Up)
+                {
+                    InsertInMultipleLine(false);
+                    e.Handled = true;
+                }
             }
             else if (Keyboard.Modifiers == ModifierKeys.Control)
             {
@@ -1497,7 +1519,10 @@ namespace CCodeEditorLib
                 else if (e.Key == Key.Oem2)
                     Comment();
                 else if (e.Key == Key.A)
+                {
                     SelectAllFlag = true;
+                    ExitMultiLineSelector();
+                }
 
                 popSuggestion.IsOpen = false;
                 lstKeyword.Items.Filter = null;
@@ -1539,6 +1564,8 @@ namespace CCodeEditorLib
 
                         e.Handled = true;
                     }
+
+                    ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Down)
                 {
@@ -1549,11 +1576,14 @@ namespace CCodeEditorLib
 
                         e.Handled = true;
                     }
+
+                    ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Enter)
                 {
                     e.Handled = SelectSuggestion();
                     StartFormatCode = true;
+                    ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Oem1)
                 {
@@ -1561,7 +1591,10 @@ namespace CCodeEditorLib
                     StartFormatCode = true;
                 }
                 else if (e.Key == Key.Right || e.Key == Key.Left)
+                {
                     popSuggestion.IsOpen = false;
+                    ExitMultiLineSelector();
+                }
                 else if (e.Key == Key.F3)
                     SearchText();
                 else if (e.Key == Key.Escape)
@@ -1576,11 +1609,14 @@ namespace CCodeEditorLib
                         ExitSearch();
                         e.Handled = true;
                     }
+
+                    ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Home)
                 {
                     TextUtils.GoAtTheBeginOfLine(tbxCode);
                     e.Handled = true;
+                    ExitMultiLineSelector();
                 }
                 else
                     CaptureInput(e.Key);
@@ -1985,7 +2021,7 @@ namespace CCodeEditorLib
         private void UpdateLineHighlight()
         {
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
-            borHighlight.Margin = new Thickness(0, rect.Top + 4, 0, 0);
+            borHighlight.Margin = new Thickness(0, rect.Top, 0, 0);
         }
 
         private void TbxCode_SelectionChanged(object sender, RoutedEventArgs e)
@@ -2621,11 +2657,14 @@ namespace CCodeEditorLib
 
         private string GetCurrentString()
         {
-            TextPointer start = tbxCode.CaretPosition;
-            string text = start.GetTextInRun(LogicalDirection.Backward)?.Split(FindDelimiters).LastOrDefault();
-            text += start.GetTextInRun(LogicalDirection.Forward)?.Split(FindDelimiters).FirstOrDefault();
+            if (!string.IsNullOrEmpty(tbxCode.Selection.Text))
+                return tbxCode.Selection.Text;
 
-            return text;
+            //TextPointer start = tbxCode.CaretPosition;
+            //string text = start.GetTextInRun(LogicalDirection.Backward)?.Split(FindDelimiters).LastOrDefault();
+            //text += start.GetTextInRun(LogicalDirection.Forward)?.Split(FindDelimiters).FirstOrDefault();
+
+            return TextUtils.GetCurrentWord(tbxCode);
         }
 
         private void ClearSearchMark()
@@ -2749,6 +2788,154 @@ namespace CCodeEditorLib
         {
             if (Keyboard.Modifiers == ModifierKeys.Control)
                 TextUtils.SelectCurrentWord(tbxCode);
+        }
+
+        private void ExitMultiLineSelector()
+        {
+            if (MultiLineSelector)
+            {
+                MultiLineStarting = false;
+                MultiLineSelector = false;
+                linMultiLine.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void InsertInMultipleLine(bool down)
+        {
+            if (!MultiLineSelector)
+            {
+                MultiLineDown = down;
+                //MultiLineStart = tbxCode.Document.ContentStart.GetOffsetToPosition(tbxCode.CaretPosition);
+                MultiLineSelector = true;
+                linMultiLine.Visibility = Visibility.Visible;
+                Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
+                MultiLineStart.X = rect.X;
+                MultiLineStart.Y = rect.Y;
+
+                linMultiLine.X1 = rect.X;
+                linMultiLine.X2 = rect.X;
+                linMultiLine.Y1 = rect.Y;
+
+                if (down)
+                    linMultiLine.Y2 = rect.Y + MultiLineHeight;
+                else
+                    linMultiLine.Y2 = rect.Y - MultiLineHeight;
+            }
+            else
+            {
+                if (down)
+                    linMultiLine.Y2 += MultiLineHeight;
+                else
+                    linMultiLine.Y2 -= MultiLineHeight;
+            }
+
+            double suby = linMultiLine.Y2 - linMultiLine.Y1;
+            MultiLineStarting = false;
+            MultiLineDown = suby >= 0.0;
+            MultiLineCount = (int)Math.Round(Math.Abs(suby) / MultiLineHeight);
+        }
+
+        private void InsertToMultipleLine()
+        {
+            Editing = true;
+
+            TextPointer StartPoint = tbxCode.GetPositionFromPoint(MultiLineStart, true);
+
+            if (StartPoint != null)
+            {
+                // Check caret before the start positon then must exit
+                if (tbxCode.CaretPosition.CompareTo(StartPoint) < 0)
+                {
+                    ExitMultiLineSelector();
+                    return;
+                }
+
+                // Init
+                if (!MultiLineStarting)
+                {
+                    if (MultiLineDown)
+                        MultiLineCount--;
+
+                    if (MultiLineCount <= 0)
+                    {
+                        ExitMultiLineSelector();
+                        return;
+                    }
+
+                    MultiLineStarting = true; // lock init again
+                    MultiLineFirstState.Clear();
+
+                    for (int i = 0; i < MultiLineCount; i++)
+                        MultiLineFirstState.Add(null);
+                }
+
+                string insertion = new TextRange(StartPoint, tbxCode.CaretPosition)?.Text;
+                int pos = new TextRange(tbxCode.Document.ContentStart, StartPoint).Text.Length;
+
+                int nex = 0;
+                int cur = CodeText.Take(pos).Count(c => c == '\n'); // find line
+                List<string> lines = CodeText.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).ToList();
+                lines.RemoveAt(lines.Count - 1);
+
+                if (lines.Count > 0)
+                {
+                    for (int i = 0; i < cur; i++)
+                        pos -= lines[i].Length + 2; // add 2 for new lines character removed in split
+                }
+
+                for (int k = 0; k < MultiLineCount; k++)
+                {
+                    if (MultiLineDown)
+                        nex = cur + k + 1; // next line 
+                    else
+                        nex = cur - (k + 1); // pre line 
+
+                    // Add new lines and free space
+                    if (nex >= lines.Count)
+                    {
+                        int sub = (nex - lines.Count) + 1;
+
+                        for (int i = 0; i < sub; i++)
+                        {
+                            string str = "";
+
+                            for (int j = 0; j < pos; j++)
+                                str += " ";
+
+                            lines.Add(str);
+                        }
+
+                        MultiLineFirstState[k] = lines[nex];
+                    }
+                    else if (lines[nex].Length < pos)
+                    {
+                        int space = pos - lines[nex].Length;
+
+                        for (int j = 0; j < space; j++)
+                            lines[nex] += " ";
+
+                        MultiLineFirstState[k] = lines[nex];
+                    }
+                    else if (MultiLineFirstState[k] == null)
+                        MultiLineFirstState[k] = lines[nex];
+
+                    // Clearing, restore line to first state
+                    lines[nex] = MultiLineFirstState[k];
+
+                    // Insertion
+                    if (lines[nex].Length == 0 || lines[nex].Length == pos)
+                        lines[nex] += insertion;
+                    else
+                        lines[nex] = lines[nex].Insert(pos, insertion);
+                }
+
+                CodeText = "";
+
+                foreach (var item in lines)
+                    CodeText += item + Environment.NewLine;
+            }
+
+            Editing = false;
         }
     }
 }
