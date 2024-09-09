@@ -39,9 +39,11 @@ namespace CCodeEditorLib
         private bool MultiLineStarting = false;
         private bool MultiLineSelector = false;
         private bool MultiLineDown = false; // down or up direction
+        private bool MultiLineDec = false;
         private int CtrlHomeCounter = 0;
         private int TagCounter = 0;
         private int MultiLineCount = 0;
+        private int MultiLinePreLen = 0;
         private int CaretPosLineFirstLen = 0;
         private double MultiLineHeight = 15.223333333333335;
         private string FilterWord = "";
@@ -192,7 +194,6 @@ namespace CCodeEditorLib
             if (!InitOnce)
             {
                 InitOnce = true;
-                tbxCode.Document.PageWidth = 100000;
 
                 if (IsEnableCodeFormatter)
                 {
@@ -319,12 +320,15 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(MainKeywordBrush, "void"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "int"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "float"));
-                    Keywords.Add(new Keyword(MainKeywordBrush, "double"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "bool"));
-                    Keywords.Add(new Keyword(MainKeywordBrush, "char"));
+
                     Keywords.Add(new Keyword(MainKeywordBrush, "if"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "else"));
+
                     Keywords.Add(new Keyword(MainKeywordBrush, "for"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "while"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "do"));
+
                     Keywords.Add(new Keyword(MainKeywordBrush, "return"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "continue"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "break"));
@@ -333,11 +337,12 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(MainKeywordBrush, "false"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "struct"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "class"));
+
                     Keywords.Add(new Keyword(MainKeywordBrush, "in"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "out"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "inout"));
-                    Keywords.Add(new Keyword(MainKeywordBrush, "const"));
 
+                    Keywords.Add(new Keyword(MainKeywordBrush, "const"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "uniform"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "varying"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "attribute"));
@@ -351,14 +356,63 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "ivec2"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "ivec3"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "ivec4"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "bvec2"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "bvec3"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "bvec4"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat2"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat3"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "mat4"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "sampler2D"));
-                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "texture2D"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "samplerCube"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_Position"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_PointSize"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FragColor"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FragCoord"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FrontFacing"));
+                    Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_PointCoord"));
+
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "abs"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "sin"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "cos"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "tan"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "asin"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "acos"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "atan"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "pow"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "exp"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "log"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "sqrt"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "inversesqrt"));
+
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "min"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "max"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "clamp"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "mix"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "step"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "smoothstep"));
+                    
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "length"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "distance"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "dot"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "cross"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "normalize"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "faceforward"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "reflect"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "refract"));
+
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "matrixCompMult"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "lessThan"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "lessThanEqual"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "greaterThan"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "greaterThanEqual"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "equal"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "notEqual"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "any"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "all"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "not"));
+
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "texture2D"));
+                    Keywords.Add(new Keyword(Brushes.SeaGreen, "textureSize"));
 
                     Keywords.Add(new Keyword(Brushes.HotPink, "#define"));
                     Keywords.Add(new Keyword(Brushes.HotPink, "PIXEL_SHADER"));
@@ -519,6 +573,9 @@ namespace CCodeEditorLib
                 }
             }
 
+            if (MultiLineDec)
+                CheckScrollBarVisibility();
+
             Editing = false;
         }
 
@@ -580,7 +637,8 @@ namespace CCodeEditorLib
                 if (MultiLineSelector)
                     InsertToMultipleLine();
 
-                CheckScrollBarVisibility();
+                if (!MultiLineDec)
+                    CheckScrollBarVisibility();
 
                 // StartChecking
                 UndoAction = false;
@@ -604,11 +662,20 @@ namespace CCodeEditorLib
                 if (CodeText != null)
                 {
                     FormattedText ft = new FormattedText(CodeText, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface, tbxCode.FontSize, Brushes.Black);
-                    double pagewidth = ft.Width + 12;
-                    tbxCode.HorizontalScrollBarVisibility = (tbxCode.ActualWidth < pagewidth) ? ScrollBarVisibility.Visible : ScrollBarVisibility.Hidden;
+                    tbxCode.Document.PageWidth = ft.Width + 12;
+                    tbxCode.HorizontalScrollBarVisibility = (tbxCode.ActualWidth < tbxCode.Document.PageWidth) ? ScrollBarVisibility.Visible : ScrollBarVisibility.Hidden;
                 }
                 else
+                {
+                    double w = this.ActualWidth - 20;
+
+                    if (w > 0)
+                        tbxCode.Document.PageWidth = w;
+                    else
+                        tbxCode.Document.PageWidth = 100;
+
                     tbxCode.HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden;
+                }
             }
         }
 
@@ -2794,6 +2861,8 @@ namespace CCodeEditorLib
         {
             if (MultiLineSelector)
             {
+                MultiLinePreLen = 0;
+                MultiLineDec = false;
                 MultiLineStarting = false;
                 MultiLineSelector = false;
                 linMultiLine.Visibility = Visibility.Collapsed;
@@ -2876,6 +2945,9 @@ namespace CCodeEditorLib
                 int cur = CodeText.Take(pos).Count(c => c == '\n'); // find line
                 List<string> lines = CodeText.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).ToList();
                 lines.RemoveAt(lines.Count - 1);
+
+                MultiLineDec = MultiLinePreLen > insertion.Length;
+                MultiLinePreLen = insertion.Length;
 
                 if (lines.Count > 0)
                 {
