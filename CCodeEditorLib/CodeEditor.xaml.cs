@@ -174,6 +174,14 @@ namespace CCodeEditorLib
             Editing = false;
         }
 
+        public void Reset()
+        {
+            Clear();
+
+            UndoStack.Clear();
+            RedoStack.Clear();
+        }
+
         public CodeEditor()
         {
             InitializeComponent();
@@ -390,7 +398,7 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(Brushes.SeaGreen, "mix"));
                     Keywords.Add(new Keyword(Brushes.SeaGreen, "step"));
                     Keywords.Add(new Keyword(Brushes.SeaGreen, "smoothstep"));
-                    
+
                     Keywords.Add(new Keyword(Brushes.SeaGreen, "length"));
                     Keywords.Add(new Keyword(Brushes.SeaGreen, "distance"));
                     Keywords.Add(new Keyword(Brushes.SeaGreen, "dot"));
@@ -2678,45 +2686,52 @@ namespace CCodeEditorLib
         public int ReplaceText(string text, string replace, bool first = false)
         {
             int matchecnt = 0;
-            
-            if (!string.IsNullOrEmpty(text))
+
+            try
             {
-                string pattern;
-                TextPointer pointer = tbxCode.Document.ContentStart;
-
-                RegexOptions op = RegexOptions.Singleline;
-
-                if (!CaseSensitive)
-                    op |= RegexOptions.IgnoreCase;
-
-                if (SingleWord)
-                    pattern = @"\b" + text + @"\b";
-                else
-                    pattern = text;
-
-                while (pointer != null)
+                if (!string.IsNullOrEmpty(text))
                 {
-                    if (pointer.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                    string pattern;
+                    TextPointer pointer = tbxCode.Document.ContentStart;
+
+                    RegexOptions op = RegexOptions.Singleline;
+
+                    if (!CaseSensitive)
+                        op |= RegexOptions.IgnoreCase;
+
+                    if (SingleWord)
+                        pattern = @"\b" + text + @"\b";
+                    else
+                        pattern = text;
+
+                    while (pointer != null)
                     {
-                        string textRun = pointer.GetTextInRun(LogicalDirection.Forward);
-                        MatchCollection matches = Regex.Matches(textRun, pattern, op);
-
-                        foreach (Match match in matches)
+                        if (pointer.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
                         {
-                            matchecnt++;
-                            int startIndex = match.Index;
-                            int length = match.Length;
-                            TextPointer start = pointer.GetPositionAtOffset(startIndex);
-                            TextPointer end = start.GetPositionAtOffset(length);
-                            new TextRange(start, end).Text = replace;
+                            string textRun = pointer.GetTextInRun(LogicalDirection.Forward);
+                            MatchCollection matches = Regex.Matches(textRun, pattern, op);
 
-                            if (first)
-                                return matchecnt;
+                            foreach (Match match in matches)
+                            {
+                                matchecnt++;
+                                int startIndex = match.Index;
+                                int length = match.Length;
+                                TextPointer start = pointer.GetPositionAtOffset(startIndex);
+                                TextPointer end = start.GetPositionAtOffset(length);
+                                new TextRange(start, end).Text = replace;
+
+                                if (first)
+                                    return matchecnt;
+                            }
                         }
-                    }
 
-                    pointer = pointer.GetNextContextPosition(LogicalDirection.Forward);
+                        pointer = pointer.GetNextContextPosition(LogicalDirection.Forward);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
             }
 
             return matchecnt;
@@ -3008,6 +3023,11 @@ namespace CCodeEditorLib
             }
 
             Editing = false;
+        }
+
+        public void UpdateFirstLine(string str)
+        {
+            TextUtils.ChangeFirstLine(tbxCode, str);
         }
     }
 }

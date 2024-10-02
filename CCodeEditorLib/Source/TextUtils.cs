@@ -468,6 +468,20 @@ namespace CCodeEditorLib.Source
                 range.Text = str.Substring(0, position) + replace + str.Substring(position + txt.Length);
         }
 
+        public static void ChangeFirstLine(RichTextBox rtb, string txt)
+        {
+            TextPointer start = rtb.Document.ContentStart.GetLineStartPosition(0);
+            TextPointer end = GetEndOfCurrentLine(start);
+
+            if (end == null)
+                return;
+
+            TextRange range = new TextRange(start, end);
+
+            if (range != null)
+                range.Text = txt;
+        }
+
         public static bool IsCharacter(string t)
         {
             if (t == " " || t == ";" || t == "\r\n" || t == "(" || t == ")" || t == "<" || t == ">"
