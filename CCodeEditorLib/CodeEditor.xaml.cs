@@ -40,6 +40,9 @@ namespace CCodeEditorLib
         private bool MultiLineSelector = false;
         private bool MultiLineDown = false; // down or up direction
         private bool MultiLineDec = false;
+        private bool TextCheckingEnable = true;
+        private bool SetLineNumberEnable = true;
+        private bool FormatImmediately = false;
         private int CtrlHomeCounter = 0;
         private int TagCounter = 0;
         private int MultiLineCount = 0;
@@ -63,7 +66,8 @@ namespace CCodeEditorLib
         private string[] Lines;
         private string CodeText;
         private string CurrentSuggestion;
-        private TextBlock[] textBlocks = new TextBlock[100];
+        private const int MAX_LINEBLOCK = 100;
+        private TextBlock[] textBlocks = new TextBlock[MAX_LINEBLOCK];
         private char[] Delimiters;
         private char[] FindDelimiters = new char[] { ' ', '<', '>', '{', '}', '[', ']', '(', ')', ',', '.' };
         public static char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';', '#' };
@@ -80,7 +84,8 @@ namespace CCodeEditorLib
         private static SolidColorBrush XMLTagColor = new SolidColorBrush(Color.FromRgb(75, 183, 134));
         private static SolidColorBrush FindMarkBrush = new SolidColorBrush(Color.FromRgb(40, 100, 40));
         private static SolidColorBrush MainKeywordBrush = new SolidColorBrush(Color.FromRgb(65, 170, 220));
-        private static SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(100, 200, 180));
+        private static SolidColorBrush LineNumberColor = new SolidColorBrush(Color.FromRgb(140, 140, 140));
+        private static SolidColorBrush SelectedLineNumberColor = Brushes.White;
         public static SolidColorBrush EnumColor = new SolidColorBrush(Color.FromRgb(190, 230, 150));
         private static SolidColorBrush VariableColor = new SolidColorBrush(Color.FromRgb(130, 130, 130));
         private static SolidColorBrush StringColor = new SolidColorBrush(Color.FromRgb(230, 160, 120));
@@ -379,48 +384,48 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_FrontFacing"));
                     Keywords.Add(new Keyword(Brushes.LightSeaGreen, "gl_PointCoord"));
 
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "abs"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "sin"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "cos"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "tan"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "asin"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "acos"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "atan"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "pow"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "exp"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "log"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "sqrt"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "inversesqrt"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "abs"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "sin"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "cos"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "tan"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "asin"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "acos"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "atan"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "pow"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "exp"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "log"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "sqrt"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "inversesqrt"));
 
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "min"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "max"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "clamp"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "mix"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "step"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "smoothstep"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "min"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "max"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "clamp"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "mix"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "step"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "smoothstep"));
 
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "length"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "distance"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "dot"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "cross"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "normalize"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "faceforward"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "reflect"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "refract"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "length"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "distance"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "dot"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "cross"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "normalize"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "faceforward"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "reflect"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "refract"));
 
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "matrixCompMult"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "lessThan"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "lessThanEqual"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "greaterThan"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "greaterThanEqual"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "equal"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "notEqual"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "any"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "all"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "not"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "matrixCompMult"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "lessThan"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "lessThanEqual"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "greaterThan"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "greaterThanEqual"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "equal"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "notEqual"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "any"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "all"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "not"));
 
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "texture2D"));
-                    Keywords.Add(new Keyword(Brushes.SeaGreen, "textureSize"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "texture2D"));
+                    Keywords.Add(new Keyword(Brushes.HotPink, "textureSize"));
 
                     Keywords.Add(new Keyword(Brushes.HotPink, "#define"));
                     Keywords.Add(new Keyword(Brushes.HotPink, "PIXEL_SHADER"));
@@ -555,13 +560,15 @@ namespace CCodeEditorLib
             catch { }
         }
 
-        private void Timer_Tick(object sender, EventArgs e)
+        private void CheckAndFormat()
         {
             Editing = true;
-            Timer.Stop();
 
-            TextChecking();
-            SetLineNumber();
+            if (TextCheckingEnable)
+                TextChecking();
+
+            if (SetLineNumberEnable)
+                SetLineNumber();
 
             // this methode must call after TextChecking because find childs indexes
             if (InputCodeType == EditorCodeType.XML && CheckXmlError)
@@ -584,7 +591,15 @@ namespace CCodeEditorLib
             if (MultiLineDec)
                 CheckScrollBarVisibility();
 
+            TextCheckingEnable = true;
+            SetLineNumberEnable = true;
             Editing = false;
+        }
+
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            Timer.Stop();
+            CheckAndFormat();
         }
 
         private void XmlErrorChecking()
@@ -626,7 +641,14 @@ namespace CCodeEditorLib
                 {
                     textBlocks[i].Text = num.ToString();
                     textBlocks[i].Visibility = Visibility.Visible;
-                    textBlocks[i++].Margin = new Thickness(0, rect.Top, 0, 0);
+                    textBlocks[i].Margin = new Thickness(0, rect.Top, 0, 0);
+
+                    if (rect.Top < borHighlight.Margin.Top || rect.Bottom > borHighlight.Margin.Top + borHighlight.ActualHeight)
+                        textBlocks[i].Foreground = LineNumberColor;
+                    else
+                        textBlocks[i].Foreground = SelectedLineNumberColor;
+
+                    i++;
                 }
                 else if (rect.Top > height)
                     break;
@@ -657,7 +679,14 @@ namespace CCodeEditorLib
                     UndoStack.Push(new UndoRedoCode(CodeText, tbxCode.CaretPosition));
 
                 Timer.Stop();
-                Timer.Start();
+
+                if (FormatImmediately)
+                {
+                    FormatImmediately = false;
+                    CheckAndFormat();
+                }
+                else
+                    Timer.Start();
 
                 TextChanged?.Invoke(sender, e);
             }
@@ -1618,7 +1647,11 @@ namespace CCodeEditorLib
                 }
                 else if (e.Key == Key.OemOpenBrackets || e.Key == Key.OemCloseBrackets)
                 {
+                    // Open and close '{' '}' start formatting
+                    TextCheckingEnable = false;
+                    SetLineNumberEnable = false;
                     popSuggestion.IsOpen = false;
+                    FormatImmediately = true;
                     StartFormatCode = true;
                 }
                 else if (e.Key == Key.D0 || e.Key == Key.D9)
@@ -1657,6 +1690,8 @@ namespace CCodeEditorLib
                 else if (e.Key == Key.Enter)
                 {
                     e.Handled = SelectSuggestion();
+                    TextCheckingEnable = false;
+                    FormatImmediately = true;
                     StartFormatCode = true;
                     ExitMultiLineSelector();
                 }
@@ -1692,6 +1727,14 @@ namespace CCodeEditorLib
                     TextUtils.GoAtTheBeginOfLine(tbxCode);
                     e.Handled = true;
                     ExitMultiLineSelector();
+                }
+                else if (e.Key == Key.End)
+                {
+                    if (popSuggestion.IsOpen)
+                    {
+                        popSuggestion.IsOpen = false;
+                        e.Handled = true;
+                    }
                 }
                 else
                     CaptureInput(e.Key);
@@ -2097,6 +2140,16 @@ namespace CCodeEditorLib
         {
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
             borHighlight.Margin = new Thickness(0, rect.Top, 0, 0);
+
+            for (int i = 0; i < MAX_LINEBLOCK; i++)
+            {
+                Thickness thick = textBlocks[i].Margin;
+
+                if (thick.Top < borHighlight.Margin.Top - 5.0 || thick.Top > borHighlight.Margin.Top + 5.0)
+                    textBlocks[i].Foreground = LineNumberColor;
+                else
+                    textBlocks[i].Foreground = SelectedLineNumberColor;
+            }
         }
 
         private void TbxCode_SelectionChanged(object sender, RoutedEventArgs e)
