@@ -2578,6 +2578,7 @@ namespace CCodeEditorLib
                         InputCodeType = EditorCodeType.CODA;
 
                     Text = File.ReadAllText(fullpath);
+                    TextChanged?.Invoke(null, null);
                 }
             }
             catch { }

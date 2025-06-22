@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -604,7 +605,9 @@ namespace CCodeEditorLib.Source
 
         public static void SelectCurrentWord(RichTextBox rtb)
         {
-            string txt;
+            bool isletter = false;
+            string txt = null;
+            string stxt = null; // start text
             string pre = null;
             TextPointer end = null;
             TextPointer start = null;
@@ -649,10 +652,14 @@ namespace CCodeEditorLib.Source
                     }
                 }
 
-                pre = txt;
-            }
-            while (!IsCharacter(txt));
+                isletter = !IsCharacter(txt);
 
+                if (isletter)
+                    pre = txt;
+            }
+            while (isletter);
+
+            stxt = pre;
             pre = null;
             nex = rtb.CaretPosition;
 
@@ -687,7 +694,7 @@ namespace CCodeEditorLib.Source
                         else
                             break;
                     }
-                    else if (IsNumber(pre))
+                    else if (IsNumber(pre) && IsNumber(stxt))
                     {
                         pre = ".";
                         txt = "";
@@ -806,6 +813,11 @@ namespace CCodeEditorLib.Source
 
                 rtb.Selection.Select(rtb.Selection.End, end);
             }
+        }
+
+        public static void RenameVariableInString(ref string code, string prename, string newname)
+        {
+            code = Regex.Replace(code, $@"(?<!\w){prename}(?!\w)", newname);
         }
     }
 }
