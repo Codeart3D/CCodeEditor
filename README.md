@@ -37,7 +37,7 @@ Game developers working with shaders (HLSL/GLSL)
 System programmers and embedded developers  
 Anyone who loves the C-family syntax and wants a fast, focused editor
 
-This project developed for CODEART Engine CODA language programming
+This project developed for CODEART Engine CODA programming language
 
 ![Screenshot](CA3DCodeEditor.png)
 ![Screenshot](CA3DXMLEditor.png)
