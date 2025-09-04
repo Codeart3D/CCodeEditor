@@ -43,11 +43,15 @@ namespace CCodeEditorLib
         private bool TextCheckingEnable = true;
         private bool SetLineNumberEnable = true;
         private bool FormatImmediately = false;
+        private bool IsScrolling = false;
         private int CtrlHomeCounter = 0;
         private int TagCounter = 0;
         private int MultiLineCount = 0;
         private int MultiLinePreLen = 0;
         private int CaretPosLineFirstLen = 0;
+        private int StartLineNumber = 0;
+        private int LastLineNumber = 0;
+        private int VisibleLineCount = 0;
         private double MultiLineHeight = 15.223333333333335;
         private string FilterWord = "";
         private string FindWord = null;
@@ -62,7 +66,10 @@ namespace CCodeEditorLib
         private List<Keyword> AttribList;
         private List<LType> Types = new List<LType>();
         private List<Keyword> Keywords = new List<Keyword>();
+        private ScrollViewer VerticalScroll;
         private string CurrentTag = null;
+        private string LinesBefore;
+        private string LinesAfter;
         private string[] Lines;
         private string CodeText;
         private string CurrentSuggestion;
@@ -207,6 +214,8 @@ namespace CCodeEditorLib
             if (!InitOnce)
             {
                 InitOnce = true;
+
+                VerticalScroll = GetScrollViewer(tbxCode);
 
                 if (IsEnableCodeFormatter)
                 {
@@ -626,36 +635,152 @@ namespace CCodeEditorLib
             FindAllWords();
         }
 
-        private void SetLineNumber()
+        ScrollViewer GetScrollViewer(DependencyObject depObj)
         {
-            int i = 0;
-            int num = 0;
-            double height = tbxCode.ActualHeight + 20;
+            if (depObj is ScrollViewer) return (ScrollViewer)depObj;
 
-            foreach (var item in tbxCode.Document.Blocks)
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
             {
-                num++;
-                Rect rect = item.ContentStart.GetCharacterRect(LogicalDirection.Forward);
-
-                if (rect.Top > -20 && rect.Top < height)
-                {
-                    textBlocks[i].Text = num.ToString();
-                    textBlocks[i].Visibility = Visibility.Visible;
-                    textBlocks[i].Margin = new Thickness(0, rect.Top, 0, 0);
-
-                    if (rect.Top < borHighlight.Margin.Top || rect.Bottom > borHighlight.Margin.Top + borHighlight.ActualHeight)
-                        textBlocks[i].Foreground = LineNumberColor;
-                    else
-                        textBlocks[i].Foreground = SelectedLineNumberColor;
-
-                    i++;
-                }
-                else if (rect.Top > height)
-                    break;
+                var child = VisualTreeHelper.GetChild(depObj, i);
+                var result = GetScrollViewer(child);
+                if (result != null) return result;
             }
 
-            for (; i < 100; i++)
-                textBlocks[i].Visibility = Visibility.Collapsed;
+            return null;
+        }
+
+
+        private void SetLineNumber()
+        {
+            //int i = 0;
+            //int num = 0;
+            //StartLineNumber = -1;
+            //double height = tbxCode.ActualHeight + 20;
+
+            //foreach (var item in tbxCode.Document.Blocks)
+            //{
+            //    num++;
+            //    Rect rect = item.ContentStart.GetCharacterRect(LogicalDirection.Forward);
+
+            //    if (rect.Top > -20 && rect.Top < height)
+            //    {
+            //        if (StartLineNumber == -1)
+            //            StartLineNumber = num - 1;
+
+            //        textBlocks[i].Text = num.ToString();
+            //        textBlocks[i].Visibility = Visibility.Visible;
+            //        textBlocks[i].Margin = new Thickness(0, rect.Top, 0, 0);
+
+            //        if (rect.Top < borHighlight.Margin.Top || rect.Bottom > borHighlight.Margin.Top + borHighlight.ActualHeight)
+            //            textBlocks[i].Foreground = LineNumberColor;
+            //        else
+            //            textBlocks[i].Foreground = SelectedLineNumberColor;
+
+            //        i++;
+            //    }
+            //    else if (rect.Top > height)
+            //        break;
+            //}
+
+            //for (; i < 100; i++)
+            //    textBlocks[i].Visibility = Visibility.Collapsed;
+
+            //if (StartLineNumber == -1)
+            //    StartLineNumber = 0;
+
+            //VisibleLineCount = num - StartLineNumber;
+
+
+            if (VerticalScroll != null)
+            {
+                string lineno = "";
+                double fl = VerticalScroll.VerticalOffset / MultiLineHeight;
+                StartLineNumber = (int)fl + 1;
+                LastLineNumber = StartLineNumber + (int)(tbxCode.ActualHeight / MultiLineHeight);
+
+                for (int i = StartLineNumber; i < LastLineNumber; i++)
+                    lineno += i + "\n";
+
+                StartLineNumber--;
+                LastLineNumber--;
+                tbkLineNumber.Margin = new Thickness(10.0, ((int)fl - fl) * MultiLineHeight, 0.0, 0.0);
+                tbkLineNumber.Text = lineno;
+            }
+        }
+
+        private string GetBeforeVisibleText()
+        {
+            TextPointer firstLine = tbxCode.Document.ContentStart.GetNextInsertionPosition(LogicalDirection.Forward);
+            TextPointer startPointer = firstLine?.GetLineStartPosition(0);
+            TextPointer endPointer = startPointer?.GetLineStartPosition(StartLineNumber);
+
+            if (startPointer != null && endPointer != null)
+                return new TextRange(startPointer, endPointer).Text;
+
+            return "";
+        }
+
+        private string GetAfterVisibleText()
+        {
+            TextPointer firstLine = tbxCode.Document.ContentStart.GetNextInsertionPosition(LogicalDirection.Forward);
+            TextPointer startPointer = firstLine?.GetLineStartPosition(LastLineNumber);
+            TextPointer endPointer = tbxCode.Document.ContentEnd;
+
+            if (startPointer != null && endPointer != null)
+                return new TextRange(startPointer, endPointer).Text;
+
+            return "";
+        }
+
+        private string GetVisibleText()
+        {
+            TextPointer firstLine = tbxCode.Document.ContentStart.GetNextInsertionPosition(LogicalDirection.Forward);
+            TextPointer startPointer = firstLine?.GetLineStartPosition(StartLineNumber);
+            TextPointer endPointer = startPointer?.GetLineStartPosition(VisibleLineCount);
+
+            if (startPointer != null && endPointer != null)
+                return new TextRange(startPointer, endPointer).Text;
+
+            return "";
+        }
+
+        void FindLineNumbersRange()
+        {
+            if (VerticalScroll != null)
+            {
+                StartLineNumber = (int)(VerticalScroll.VerticalOffset / MultiLineHeight); // start visible line number
+                VisibleLineCount = (int)(tbxCode.ActualHeight / MultiLineHeight);
+                LastLineNumber = StartLineNumber + VisibleLineCount;
+            }
+            else
+            {
+                StartLineNumber = 0;
+                VisibleLineCount = Lines.Length;
+                LastLineNumber = Lines.Length;
+            }
+        }
+
+        private void UpdateLines()
+        {
+            FindLineNumbersRange();
+
+            LinesBefore = GetBeforeVisibleText();
+            LinesAfter = GetAfterVisibleText();
+            Lines = GetVisibleText().Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+
+            if (LinesBefore.EndsWith("\r\n"))
+                LinesBefore = LinesBefore.Substring(0, LinesBefore.Length - 2);
+
+            if (LinesAfter.EndsWith("\r\n"))
+                LinesAfter = LinesAfter.Substring(0, LinesAfter.Length - 2);
+
+            if (Lines.Length > 0)
+            {
+                int ll = Lines.Length - 1;
+
+                if (Lines[ll].EndsWith("\r\n"))
+                    Lines[ll] = Lines[ll].Substring(0, Lines[ll].Length - 2);
+            }
         }
 
         private void tbxCode_TextChanged(object sender, TextChangedEventArgs e)
@@ -673,6 +798,7 @@ namespace CCodeEditorLib
                 // StartChecking
                 UndoAction = false;
 
+                //UpdateLines();
                 Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
                 if (!string.IsNullOrEmpty(CodeText))
@@ -961,9 +1087,7 @@ namespace CCodeEditorLib
             for (int i = 0; i < lcount; i++)
             {
                 Paragraph paragraph = new Paragraph();
-
                 CollectXMLKeyword(i, paragraph);
-
                 tbxCode.Document.Blocks.Add(paragraph);
             }
 
@@ -988,27 +1112,67 @@ namespace CCodeEditorLib
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
             Point point = new Point(rect.X, rect.Y);
 
+            //TextPointer start = tbxCode.Document.ContentStart;
+            //int caretOffset = start.GetOffsetToPosition(tbxCode.CaretPosition);
+
             // collect color
             Run RunColor = null;
             int ccounter = 0;
             bool collect_color = false;
+            char[] word = new char[1024];
             char[] ColorValue = new char[8] { '0', '0', '0', '0', '0', '0', '0', '0' };
 
             tbxCode.Document.Blocks.Clear();
+
+            //if (LinesBefore != null && LinesBefore.Length > 0)
+            //{
+            //    foreach (var lb in LinesBefore)
+            //    {
+            //        Paragraph parag = new Paragraph();
+            //        parag.Inlines.Add(new Run(lb));
+            //        tbxCode.Document.Blocks.Add(parag);
+            //    }
+            //}
+
+            Paragraph paragraph;
+
+            //if (StartLineNumber > 0)
+            //{
+            //    parag = new Paragraph();
+            //    parag.Inlines.Add(new Run(LinesBefore));
+            //    tbxCode.Document.Blocks.Add(parag);
+            //}
+            FindLineNumbersRange();
 
             if (string.IsNullOrEmpty(Lines.Last()))
                 lcount = Lines.Length - 1;
             else
                 lcount = Lines.Length;
 
-            for (int i = 0; i < lcount; i++)
+            if (LastLineNumber > lcount)
+                LastLineNumber = lcount;
+
+            if (StartLineNumber > 0)
+            {
+                paragraph = new Paragraph();
+                int ll = StartLineNumber - 1;
+
+                for (int i = 0; i < ll; i++)
+                    paragraph.Inlines.Add(new Run(Lines[i] + Environment.NewLine));
+
+                paragraph.Inlines.Add(new Run(Lines[ll]));
+                tbxCode.Document.Blocks.Add(paragraph);
+            }
+
+            int lln = LastLineNumber - 1;
+            paragraph = new Paragraph();
+
+            for (int i = StartLineNumber; i < LastLineNumber; i++)
             {
                 int k = 0;
                 bool collect_string = false;
                 bool collect_comment_slash = false;
-                char[] word = new char[1024];
                 Lines[i] = Lines[i].Replace("\t", String.Empty);
-                Paragraph paragraph = new Paragraph();
 
                 for (int j = 0; j < Lines[i].Length; j++)
                 {
@@ -1202,13 +1366,73 @@ namespace CCodeEditorLib
                     }
                 }
 
+                if (i < lln)
+                    paragraph.Inlines.Add(new Run(Environment.NewLine));
+            }
+
+            tbxCode.Document.Blocks.Add(paragraph);
+
+            //if (!string.IsNullOrEmpty(LinesAfter))
+            //{
+            //    parag = new Paragraph();
+            //    parag.Inlines.Add(new Run(LinesAfter));
+            //    tbxCode.Document.Blocks.Add(parag);
+            //}
+
+            if (LastLineNumber < lcount)
+            {
+                paragraph = new Paragraph();
+                int ll = lcount - 1;
+
+                for (int i = LastLineNumber; i < ll; i++)
+                    paragraph.Inlines.Add(new Run(Lines[i] + Environment.NewLine));
+
+                if (Lines[ll] != "")
+                    paragraph.Inlines.Add(new Run(Lines[ll]));
+
                 tbxCode.Document.Blocks.Add(paragraph);
             }
+
+            //if (LinesAfter != null && LinesAfter.Length > 0)
+            //{
+            //    foreach (var lb in LinesAfter)
+            //    {
+            //        Paragraph parag = new Paragraph();
+            //        parag.Inlines.Add(new Run(lb));
+            //        tbxCode.Document.Blocks.Add(parag);
+            //    }
+            //}
 
             var tp = tbxCode.GetPositionFromPoint(point, true);
 
             if (tp != null)
+            {
+                double verticalOffset = VerticalScroll.VerticalOffset;
                 tbxCode.CaretPosition = tp;
+
+                if (IsScrolling)
+                {
+                    IsScrolling = false;
+                    VerticalScroll.ScrollToVerticalOffset(verticalOffset);
+                }
+            }
+
+            //if (IsLoaded)
+            //{
+            //    TextPointer newCaretPos = tbxCode.Document.ContentStart.GetPositionAtOffset(caretOffset, LogicalDirection.Forward);
+
+            //    if (newCaretPos != null)
+            //    {
+            //        double verticalOffset = VerticalScroll.VerticalOffset;
+            //        tbxCode.CaretPosition = newCaretPos;
+
+            //        if (IsScrolling)
+            //        {
+            //            IsScrolling = false;
+            //            VerticalScroll.ScrollToVerticalOffset(verticalOffset);
+            //        }
+            //    }
+            //}
 
             Checking = false;
         }
@@ -1645,13 +1869,22 @@ namespace CCodeEditorLib
                         return;
                     }
                 }
-                else if (e.Key == Key.OemOpenBrackets || e.Key == Key.OemCloseBrackets)
+                else if (e.Key == Key.OemOpenBrackets)
                 {
                     // Open and close '{' '}' start formatting
                     TextCheckingEnable = false;
                     SetLineNumberEnable = false;
                     popSuggestion.IsOpen = false;
-                    FormatImmediately = true;
+                    //FormatImmediately = true;
+                    //StartFormatCode = true;
+                }
+                else if (e.Key == Key.OemCloseBrackets)
+                {
+                    // Open and close '{' '}' start formatting
+                    TextCheckingEnable = false;
+                    SetLineNumberEnable = false;
+                    popSuggestion.IsOpen = false;
+                    //FormatImmediately = true;
                     StartFormatCode = true;
                 }
                 else if (e.Key == Key.D0 || e.Key == Key.D9)
@@ -1691,12 +1924,13 @@ namespace CCodeEditorLib
                 {
                     e.Handled = SelectSuggestion();
                     TextCheckingEnable = false;
-                    FormatImmediately = true;
+                    //FormatImmediately = true;
                     StartFormatCode = true;
                     ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Oem1)
                 {
+                    // Check ; character
                     popSuggestion.IsOpen = false;
                     StartFormatCode = true;
                 }
@@ -2139,16 +2373,20 @@ namespace CCodeEditorLib
         private void UpdateLineHighlight()
         {
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
-            borHighlight.Margin = new Thickness(0, rect.Top, 0, 0);
 
-            for (int i = 0; i < MAX_LINEBLOCK; i++)
+            if (rect.Bottom > -50.0f && rect.Top < tbxCode.ActualHeight + 50.0f)
             {
-                Thickness thick = textBlocks[i].Margin;
+                borHighlight.Margin = new Thickness(0, rect.Top, 0, 0);
 
-                if (thick.Top < borHighlight.Margin.Top - 5.0 || thick.Top > borHighlight.Margin.Top + 5.0)
-                    textBlocks[i].Foreground = LineNumberColor;
-                else
-                    textBlocks[i].Foreground = SelectedLineNumberColor;
+                for (int i = 0; i < MAX_LINEBLOCK; i++)
+                {
+                    Thickness thick = textBlocks[i].Margin;
+
+                    if (thick.Top < borHighlight.Margin.Top - 5.0 || thick.Top > borHighlight.Margin.Top + 5.0)
+                        textBlocks[i].Foreground = LineNumberColor;
+                    else
+                        textBlocks[i].Foreground = SelectedLineNumberColor;
+                }
             }
         }
 
@@ -2553,8 +2791,22 @@ namespace CCodeEditorLib
 
         private void TbxCode_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            SetLineNumber();
-            UpdateLineHighlight();
+            if (IsLoaded && !Editing)
+            {
+                //Editing = true;
+                SetLineNumber();
+                //UpdateLines();
+                //TextChecking();
+                UpdateLineHighlight();
+
+                if (Lines != null)
+                {
+                    IsScrolling = true;
+                    Timer.Stop();
+                    Timer.Start();
+                }
+                //Editing = false;
+            }
         }
 
         public void Save(string fullpath)
@@ -2815,6 +3067,7 @@ namespace CCodeEditorLib
             borFind.Visibility = Visibility.Visible;
 
             string fstr = GetCurrentString();
+            tbxFind.Focus();
 
             if (!string.IsNullOrEmpty(fstr))
             {
@@ -2853,6 +3106,7 @@ namespace CCodeEditorLib
             TextChecking();
             Editing = false;
             borFind.Visibility = Visibility.Collapsed;
+            tbxCode.Focus();
         }
 
         private void tbxFind_PreviewKeyDown(object sender, KeyEventArgs e)
