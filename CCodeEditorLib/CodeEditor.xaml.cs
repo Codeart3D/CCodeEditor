@@ -148,7 +148,8 @@ namespace CCodeEditorLib
                     if (value == null)
                         CodeText = "";
 
-                    Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                    Lines = CodeText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+                    //Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
                     TextChecking();
                     SetLineNumber();
@@ -1403,17 +1404,20 @@ namespace CCodeEditorLib
             //    }
             //}
 
-            var tp = tbxCode.GetPositionFromPoint(point, true);
-
-            if (tp != null)
+            if (IsLoaded)
             {
-                double verticalOffset = VerticalScroll.VerticalOffset;
-                tbxCode.CaretPosition = tp;
+                var tp = tbxCode.GetPositionFromPoint(point, true);
 
-                if (IsScrolling)
+                if (tp != null && VerticalScroll != null)
                 {
-                    IsScrolling = false;
-                    VerticalScroll.ScrollToVerticalOffset(verticalOffset);
+                    double verticalOffset = VerticalScroll.VerticalOffset;
+                    tbxCode.CaretPosition = tp;
+
+                    if (IsScrolling)
+                    {
+                        IsScrolling = false;
+                        VerticalScroll.ScrollToVerticalOffset(verticalOffset);
+                    }
                 }
             }
 
