@@ -193,6 +193,7 @@ namespace CCodeEditorLib
 
             UndoStack.Clear();
             RedoStack.Clear();
+            Error = "";
         }
 
         public CodeEditor()
@@ -360,6 +361,7 @@ namespace CCodeEditorLib
                     Keywords.Add(new Keyword(MainKeywordBrush, "false"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "struct"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "class"));
+                    Keywords.Add(new Keyword(MainKeywordBrush, "discard"));
 
                     Keywords.Add(new Keyword(MainKeywordBrush, "in"));
                     Keywords.Add(new Keyword(MainKeywordBrush, "out"));
@@ -692,21 +694,29 @@ namespace CCodeEditorLib
             //VisibleLineCount = num - StartLineNumber;
 
 
+            string lineno = "";
+            double fl = 0.0;
+
             if (VerticalScroll != null)
+                fl = VerticalScroll.VerticalOffset / MultiLineHeight;
+            else
             {
-                string lineno = "";
-                double fl = VerticalScroll.VerticalOffset / MultiLineHeight;
-                StartLineNumber = (int)fl + 1;
-                LastLineNumber = StartLineNumber + (int)(tbxCode.ActualHeight / MultiLineHeight);
+                VerticalScroll = GetScrollViewer(tbxCode);
 
-                for (int i = StartLineNumber; i < LastLineNumber; i++)
-                    lineno += i + "\n";
-
-                StartLineNumber--;
-                LastLineNumber--;
-                tbkLineNumber.Margin = new Thickness(10.0, ((int)fl - fl) * MultiLineHeight, 0.0, 0.0);
-                tbkLineNumber.Text = lineno;
+                if (VerticalScroll != null)
+                    fl = VerticalScroll.VerticalOffset / MultiLineHeight;
             }
+
+            StartLineNumber = (int)fl + 1;
+            LastLineNumber = StartLineNumber + (int)(tbxCode.ActualHeight / MultiLineHeight);
+
+            for (int i = StartLineNumber; i < LastLineNumber; i++)
+                lineno += i + "\n";
+
+            StartLineNumber--;
+            LastLineNumber--;
+            tbkLineNumber.Margin = new Thickness(10.0, ((int)fl - fl) * MultiLineHeight, 0.0, 0.0);
+            tbkLineNumber.Text = lineno;
         }
 
         private string GetBeforeVisibleText()
@@ -1080,7 +1090,7 @@ namespace CCodeEditorLib
 
             // Save caret position
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
-            Point point = new Point(rect.X, rect.Y);
+            Point point = new Point(rect.X, rect.Y + rect.Height * 0.5);
 
             // Start checking
             tbxCode.Document.Blocks.Clear();
@@ -1111,7 +1121,7 @@ namespace CCodeEditorLib
             int lcount;
             bool collect_comment_star = false;
             Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
-            Point point = new Point(rect.X, rect.Y);
+            Point point = new Point(rect.X, rect.Y + rect.Height * 0.5);
 
             //TextPointer start = tbxCode.Document.ContentStart;
             //int caretOffset = start.GetOffsetToPosition(tbxCode.CaretPosition);
@@ -1157,6 +1167,9 @@ namespace CCodeEditorLib
             {
                 paragraph = new Paragraph();
                 int ll = StartLineNumber - 1;
+
+                if (ll >= Lines.Length)
+                    ll = Lines.Length - 1;
 
                 for (int i = 0; i < ll; i++)
                     paragraph.Inlines.Add(new Run(Lines[i] + Environment.NewLine));
@@ -2578,7 +2591,7 @@ namespace CCodeEditorLib
 
                     precs = ncode[j - 1];
                 }
-                else if (curc == '\r')
+                else if (curc == '\r' || (curc == '\n' && prec != '\r'))
                 {
                     SetPreWord(ref preword, ref word, ref k);
                     precs = '\n';
@@ -2651,7 +2664,8 @@ namespace CCodeEditorLib
 
                                     // end of functions
                                     // call class member with '.'
-                                    if (nexc != ';' && nexc != '.')
+                                    // check if and for statment () then must insert new line
+                                    if (nexc != ';' && nexc != '.' && !CheckLetterNumber(nexc))
                                     {
                                         ncode[j++] = '\n';
                                         InsertGap(ncode, ref j, startcolumn + 1);
@@ -2664,7 +2678,7 @@ namespace CCodeEditorLib
                         }
 
                         // insert space before a sign
-                        if ((CheckLetterNumber(prec) && CheckStandardSign(curc)) && !(curc == '+' && nexc == '+'))
+                        if ((CheckLetterNumber(prec) && CheckStandardSign(curc)) && !(curc == '+' && nexc == '+') && !(curc == '-' && nexc == '-'))
                             ncode[j++] = ' ';
 
                         precs = curc;
@@ -2806,8 +2820,9 @@ namespace CCodeEditorLib
                 if (Lines != null)
                 {
                     IsScrolling = true;
-                    Timer.Stop();
+                    //Timer.Stop();
                     Timer.Start();
+                    //CheckAndFormat();
                 }
                 //Editing = false;
             }
@@ -3340,6 +3355,16 @@ namespace CCodeEditorLib
         public void UpdateFirstLine(string str)
         {
             TextUtils.ChangeFirstLine(tbxCode, str);
+        }
+
+        private void BtnCaseSensitive_Click(object sender, RoutedEventArgs e)
+        {
+            FindText();
+        }
+
+        private void BtnSingleWord_Click(object sender, RoutedEventArgs e)
+        {
+            FindText();
         }
     }
 }
