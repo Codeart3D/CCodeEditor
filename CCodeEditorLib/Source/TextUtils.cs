@@ -114,14 +114,25 @@ namespace CCodeEditorLib.Source
             TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
             string line = new TextRange(start, end).Text;
             int tlen = line.Length;
-            int forward = tlen - line.TrimStart().Length;
+            int tslen = line.TrimStart().Length;
+            int forward = tlen - tslen;
 
-            if (forward != tlen)
+            // Empty line go at the zero position
+            if (tslen == 0)
+                rtb.CaretPosition = caretPos.GetLineStartPosition(0);
+            else if (forward != tlen)
             {
-                rtb.CaretPosition = start;
-
                 for (int i = 0; i < forward; i++)
-                    rtb.CaretPosition = rtb.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+                    start = start.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                Rect rec1 = start.GetCharacterRect(LogicalDirection.Backward);
+                Rect rec2 = rtb.CaretPosition.GetCharacterRect(LogicalDirection.Backward);
+
+                // caret position at the start of line and pre position
+                if (rec1.X == rec2.X)
+                    rtb.CaretPosition = caretPos.GetLineStartPosition(0);
+                else
+                    rtb.CaretPosition = start;
             }
         }
 
@@ -193,12 +204,38 @@ namespace CCodeEditorLib.Source
 
         public static void SelectFromCaretToStartOfLine(RichTextBox rtb)
         {
-            TextPointer fp = GetFirstOfCurrentLineWithoutSpace(rtb.CaretPosition);
+            TextPointer caretPos = rtb.CaretPosition;
+            TextPointer start = caretPos.GetLineStartPosition(0);
+            TextPointer end = caretPos.GetLineStartPosition(1) != null ? caretPos.GetLineStartPosition(1) : caretPos.DocumentEnd;
+            string line = new TextRange(start, end).Text;
+            int tlen = line.Length;
+            int tslen = line.TrimStart().Length;
+            int forward = tlen - tslen;
 
-            if (rtb.CaretPosition.GetOffsetToPosition(fp) != rtb.CaretPosition.GetOffsetToPosition(rtb.CaretPosition))
-                rtb.Selection.Select(rtb.CaretPosition, fp);
-            else
-                rtb.Selection.Select(rtb.CaretPosition, rtb.CaretPosition.GetLineStartPosition(0));
+            // Empty line go at the zero position
+            if (tslen == 0)
+                rtb.Selection.Select(rtb.CaretPosition, caretPos.GetLineStartPosition(0));
+            else if (forward != tlen)
+            {
+                for (int i = 0; i < forward; i++)
+                    start = start.GetNextInsertionPosition(LogicalDirection.Forward);
+
+                Rect rec1 = start.GetCharacterRect(LogicalDirection.Backward);
+                Rect rec2 = rtb.CaretPosition.GetCharacterRect(LogicalDirection.Backward);
+
+                // caret position at the start of line and pre position
+                if (rec1.X == rec2.X)
+                    rtb.Selection.Select(rtb.CaretPosition, caretPos.GetLineStartPosition(0));
+                else
+                    rtb.Selection.Select(rtb.CaretPosition, start);
+            }
+
+            //TextPointer fp = GetFirstOfCurrentLineWithoutSpace(rtb.CaretPosition);
+
+            //if (rtb.CaretPosition.GetOffsetToPosition(fp) != rtb.CaretPosition.GetOffsetToPosition(rtb.CaretPosition))
+            //    rtb.Selection.Select(rtb.CaretPosition, fp);
+            //else
+            //    rtb.Selection.Select(rtb.CaretPosition, rtb.CaretPosition.GetLineStartPosition(0));
         }
 
         public static void InsertEmptyLine(RichTextBox rtb)
@@ -818,6 +855,226 @@ namespace CCodeEditorLib.Source
         public static void RenameVariableInString(ref string code, string prename, string newname)
         {
             code = Regex.Replace(code, $@"(?<!\w){prename}(?!\w)", newname);
+        }
+
+        public static List<Keyword> FilterWithPriority(List<Keyword> source, string filterWord)
+        {
+            if (string.IsNullOrEmpty(filterWord) || source == null || source.Count == 0)
+                return source ?? new List<Keyword>();
+
+            var results = new List<Keyword>();
+
+            // Level 1: StartsWith with exact case match
+            var exactStartsWith = source
+                .Where(s => s.Key.StartsWith(filterWord))
+                .OrderBy(s => s.Key) // Alphabetical for closest matching
+                .ToList();
+
+            // Level 2: StartsWith with case-insensitive (but not exact case)
+            var insensitiveStartsWith = source
+                .Where(s => s.Key.StartsWith(filterWord, StringComparison.OrdinalIgnoreCase) &&
+                           !s.Key.StartsWith(filterWord))
+                .OrderBy(s => s.Key.ToLower())
+                .Select(s => new Keyword(s.Color, s.Key, s.Type, s.ReplaceKey, s.Visible, s.ReturnBackward)) // Create new Keyword with lowercase
+                .ToList();
+
+            // Level 3: Contains with case-insensitive (but not StartsWith)
+            var containsMatches = source
+                .Where(s => s.Key.IndexOf(filterWord, StringComparison.OrdinalIgnoreCase) >= 0 &&
+                           !s.Key.StartsWith(filterWord, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(s => s.Key.ToLower())
+                .Select(s => new Keyword(s.Color, s.Key, s.Type, s.ReplaceKey, s.Visible, s.ReturnBackward)) // Create new Keyword with lowercase
+                .ToList();
+
+            results.AddRange(exactStartsWith);
+            results.AddRange(insensitiveStartsWith);
+            results.AddRange(containsMatches);
+
+            return results;
+        }
+
+        public static void InsertWordAtLineWithHeight(RichTextBox richTextBox, string word, int lineNumber)
+        {
+            FlowDocument document = richTextBox.Document;
+            TextPointer startPointer = document.ContentStart;
+
+            // Get line height (approximate)
+            double lineHeight = richTextBox.FontSize * 1.2; // Adjust multiplier as needed
+
+            // Navigate to the approximate position
+            TextPointer targetPointer = startPointer;
+
+            for (int i = 0; i < lineNumber; i++)
+            {
+                // Move down one line
+                targetPointer = targetPointer.GetLineStartPosition(1);
+                if (targetPointer == null) break;
+            }
+
+            if (targetPointer != null)
+                targetPointer.InsertTextInRun(word + " ");
+        }
+
+        public static void RemoveCharAt(RichTextBox richTextBox, int lineNumber, int columnNumber)
+        {
+            if (richTextBox?.Document == null)
+                return;
+
+            if (lineNumber < 0 || columnNumber < 0)
+                return;
+
+            FlowDocument document = richTextBox.Document;
+            TextPointer currentPointer = document.ContentStart;
+            int currentLine = 0;
+
+            // Navigate to the specified line
+            while (currentPointer != null && currentLine < lineNumber)
+            {
+                currentPointer = currentPointer.GetLineStartPosition(0);
+
+                if (currentPointer == null)
+                    break;
+
+                currentLine++;
+            }
+
+            if (currentPointer == null || currentLine != lineNumber)
+                return;
+
+            // Now navigate to the specified column within this line
+            TextPointer targetPointer = currentPointer;
+            int currentColumn = 0;
+
+            while (targetPointer != null && currentColumn < columnNumber)
+            {
+                // Get the next character position
+                TextPointer nextPointer = targetPointer.GetPositionAtOffset(1);
+
+                if (nextPointer == null)
+                    break;
+
+                // Check if we've reached the end of the line
+                if (targetPointer.GetAdjacentElement(LogicalDirection.Forward) is LineBreak)
+                    break;
+
+                targetPointer = nextPointer;
+                currentColumn++;
+            }
+
+            if (targetPointer == null || currentColumn != columnNumber)
+                return;
+
+            // Check if there's a character at this position
+            string text = targetPointer.GetTextInRun(LogicalDirection.Forward);
+
+            if (string.IsNullOrEmpty(text) || text.Length == 0)
+                return;
+
+            // Remove the character
+            TextPointer nextChar = targetPointer.GetPositionAtOffset(1);
+
+            if (nextChar != null)
+            {
+                TextRange rangeToRemove = new TextRange(targetPointer, nextChar);
+                rangeToRemove.Text = "";
+            }
+        }
+
+        public static bool RemoveCharAtPoint(RichTextBox richTextBox, Point point)
+        {
+            if (richTextBox?.Document == null)
+                return false;
+
+            try
+            {
+                // Save current caret position
+                TextPointer savedCaret = richTextBox.CaretPosition;
+
+                // Get the TextPointer at the given point
+                TextPointer pointer = richTextBox.GetPositionFromPoint(point, true);
+
+                if (pointer == null)
+                    return false;
+
+                // Get the character at this position
+                TextPointer charToRemove = pointer;
+
+                // If we're at the end of a run, move back one character
+                string text = pointer.GetTextInRun(LogicalDirection.Forward);
+
+                if (string.IsNullOrEmpty(text))
+                {
+                    // Try to move backward to get a character
+                    TextPointer prevPointer = pointer.GetPositionAtOffset(-1);
+
+                    if (prevPointer != null)
+                    {
+                        string prevText = prevPointer.GetTextInRun(LogicalDirection.Forward);
+
+                        if (!string.IsNullOrEmpty(prevText))
+                        {
+                            charToRemove = prevPointer;
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+                // Remove the character
+                TextPointer nextChar = charToRemove.GetPositionAtOffset(1);
+
+                if (nextChar != null)
+                {
+                    TextRange rangeToRemove = new TextRange(charToRemove, nextChar);
+                    rangeToRemove.Text = "";
+
+                    // Restore caret position
+                    richTextBox.CaretPosition = savedCaret;
+                    return true;
+                }
+
+                return false;
+            }
+            catch 
+            {
+                return false;
+            }
+        }
+
+        public static bool InsertStringAtPoint(RichTextBox richTextBox, Point point, string textToInsert)
+        {
+            if (richTextBox?.Document == null || string.IsNullOrEmpty(textToInsert))
+                return false;
+
+            try
+            {
+                // Save current caret position
+                TextPointer savedCaret = richTextBox.CaretPosition;
+
+                // Get the TextPointer at the given point
+                TextPointer pointer = richTextBox.GetPositionFromPoint(point, true);
+
+                if (pointer == null)
+                    return false;
+
+                // Insert the text at the pointer position
+                pointer.InsertTextInRun(textToInsert);
+
+                // Restore caret position
+                richTextBox.CaretPosition = savedCaret;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

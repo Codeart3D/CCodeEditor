@@ -66,6 +66,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <Compile Include="Source\FastSyntaxHighlighter.cs" />
     <Compile Include="Source\Keyword.cs" />
     <Compile Include="Source\KeywordClass.cs" />
     <Compile Include="Source\LType.cs" />

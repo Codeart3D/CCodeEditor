@@ -57,7 +57,7 @@
 
             <Line Grid.Column="1" X1="10" X2="10" Y1="0" Y2="20" Stroke="#0077cc" StrokeThickness="2" Name="linMultiLine" Visibility="Collapsed"/>
 
-            <TextBlock Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="15,1" Name="tbkCaption" FontSize="12" FontWeight="Bold" Opacity="0.3" IsHitTestVisible="False"/>
+            <TextBlock Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="15,0" Name="tbkCaption" FontSize="14" FontWeight="Bold" Opacity="0.3" IsHitTestVisible="False" Text="CODA Programming Language Version 2.0"/>
 
             <Border Grid.Column="1" Width="280" Height="80" Background="#272727" HorizontalAlignment="Right" CornerRadius="3"
                 VerticalAlignment="Top" BorderThickness="1" BorderBrush="#151515" x:Name="borFind" Visibility="Collapsed" Margin="2">
@@ -106,7 +106,7 @@
                 </Grid>
             </Border>
 
-            <Popup Grid.Column="1" Width="150" Height="auto" MaxHeight="200" MinHeight="50" StaysOpen="False" IsOpen="False" Name="popSuggestion" Placement="AbsolutePoint">
+            <Popup Grid.Column="1" Width="auto" MinWidth="150" MaxWidth="400" Height="auto" MaxHeight="200" MinHeight="50" StaysOpen="False" IsOpen="False" Name="popSuggestion" Placement="AbsolutePoint">
                 <ListBox Background="#222" BorderThickness="1" BorderBrush="#111" Name="lstKeyword" HorizontalContentAlignment="Stretch" SelectionChanged="LstKeyword_SelectionChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -118,7 +118,7 @@
                                 </Grid.ColumnDefinitions>
 
                                 <Image Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" Source="{Binding Icon}" IsHitTestVisible="False"/>
-                                <TextBlock Grid.Column="2" Text="{Binding Key}" Foreground="WhiteSmoke" IsHitTestVisible="False"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Key}" Foreground="{Binding Color}" IsHitTestVisible="False"/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -138,7 +138,7 @@
                          BorderThickness="0" BorderBrush="Transparent" Background="Transparent" 
                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" TextWrapping="WrapWithOverflow"/>
 
-                <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="#555" Margin="5,0" FontSize="12" FontWeight="Bold" Text="CodeArt Code Editor Version 3.2"/>
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="#555" Margin="5,0" FontSize="12" FontWeight="Bold" Text="CodeArt Code Editor Version 3.5"/>
                 <Button Grid.Column="2" Width="20" Height="20" Content="_" VerticalAlignment="Top" Margin="5" Background="Transparent" Name="btnClearError" Click="BtnClearError_Click"/>
             </Grid>
         </Border>

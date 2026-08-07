@@ -66,6 +66,7 @@ namespace CCodeEditorLib
         private List<Keyword> AttribList;
         private List<LType> Types = new List<LType>();
         private List<Keyword> Keywords = new List<Keyword>();
+        private List<Keyword> CurrentKeyList = null;
         private ScrollViewer VerticalScroll;
         private string CurrentTag = null;
         private string LinesBefore;
@@ -78,14 +79,18 @@ namespace CCodeEditorLib
         private char[] Delimiters;
         private char[] FindDelimiters = new char[] { ' ', '<', '>', '{', '}', '[', ']', '(', ')', ',', '.' };
         public static char[] CodeDelimiters = new char[] { ' ', '\0', '(', ')', '.', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';', '#' };
+        public static char[] JoinDelimiters = new char[] { ' ', '\0', '.' };
+        public static char[] DifferentDelimiters = new char[] { '(', ')', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';', '#' };
         private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
+        private string[] NewLineTypes = new[] { "\r\n", "\n" };
 
         private Stack<UndoRedoCode> UndoStack = new Stack<UndoRedoCode>();
         private Stack<UndoRedoCode> RedoStack = new Stack<UndoRedoCode>();
 
         private DispatcherTimer Timer; // set line numbers and code color and ...
         private DispatcherTimer CodeTimer = null; // for format code
-        private DispatcherTimer CaretPosTimer = null; // for format code
+        private DispatcherTimer ScrollTimer;
+        //private DispatcherTimer CaretPosTimer = null; // for format code
 
         private static SolidColorBrush XMLOpenCloseTagColor = Brushes.White;
         private static SolidColorBrush XMLTagColor = new SolidColorBrush(Color.FromRgb(75, 183, 134));
@@ -99,6 +104,7 @@ namespace CCodeEditorLib
         // 230, 200, 150 cream gold
 
         public List<Keyword> SubSuggestions;
+        private FastSyntaxHighlighter FastSyntaxHighlighter;
 
         public Visibility DisplayErrorSection { get { return tbkError.Visibility; } set { tbkError.Visibility = value; } }
         public string Error { get { return tbkError.Text; } set { tbkError.Text = value; } }
@@ -117,6 +123,12 @@ namespace CCodeEditorLib
         public event RestoreSuggestionList UpdateSubSuggestionList;
 
         public event TextChangedEventHandler TextChanged;
+
+        public delegate void FunctionOpenedEvent(Rect rect, string line);
+        public event FunctionOpenedEvent FunctionOpened;
+
+        public delegate void FunctionClosedEvent();
+        public event FunctionClosedEvent FunctionClosed;
 
         public enum EditorCodeType
         {
@@ -148,7 +160,7 @@ namespace CCodeEditorLib
                     if (value == null)
                         CodeText = "";
 
-                    Lines = CodeText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+                    Lines = CodeText.Split(NewLineTypes, StringSplitOptions.None);
                     //Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
 
                     TextChecking();
@@ -209,6 +221,8 @@ namespace CCodeEditorLib
             }
 
             DataObject.AddPastingHandler(tbxCode, OnPaste);
+
+            FastSyntaxHighlighter = new FastSyntaxHighlighter(tbxCode);
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
@@ -224,13 +238,13 @@ namespace CCodeEditorLib
                     if (CodeType == EditorCodeType.XML)
                     {
                         CodeTimer = new DispatcherTimer();
-                        CodeTimer.Interval = new TimeSpan(0, 0, 5);
+                        CodeTimer.Interval = new TimeSpan(0, 0, 10);
                         CodeTimer.Tick += CodeTimer_Tick;
                     }
 
-                    CaretPosTimer = new DispatcherTimer();
-                    CaretPosTimer.Interval = new TimeSpan(0, 0, 0, 0, 50);
-                    CaretPosTimer.Tick += CaretPosTimer_Tick;
+                    //CaretPosTimer = new DispatcherTimer();
+                    //CaretPosTimer.Interval = new TimeSpan(0, 0, 0, 0, 5);
+                    //CaretPosTimer.Tick += CaretPosTimer_Tick;
                 }
 
                 LType lt = new LType("var", KeywordType.Main);
@@ -253,20 +267,58 @@ namespace CCodeEditorLib
                 bool res = syntax.Check("SetValue(10);");
 
                 Timer = new DispatcherTimer();
-                Timer.Interval = new TimeSpan(0, 0, 0, 0, 50);
+                Timer.Interval = new TimeSpan(0, 0, 0, 0, 10);
                 Timer.Tick += Timer_Tick;
 
-                lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
+                ScrollTimer = new DispatcherTimer();
+                ScrollTimer.Interval = new TimeSpan(0, 0, 0, 0, 80);
+                ScrollTimer.Tick += ScrollTimer_Tick;
+
+                CurrentKeyList = Keywords.Where(p => p.Visible).ToList();
+                lstKeyword.ItemsSource = CurrentKeyList;
             }
 
             tbxCode.Focus();
             CheckScrollBarVisibility();
         }
 
-        private void CaretPosTimer_Tick(object sender, EventArgs e)
-        {
-            CaretPosTimer.Stop();
+        //private void CaretPosTimer_Tick(object sender, EventArgs e)
+        //{
+        //    CaretPosTimer.Stop();
 
+        //    int sub = TextUtils.GetLineText(tbxCode).Length - CaretPosLineFirstLen;
+
+        //    if (sub > 0)
+        //    {
+        //        if (InputKey == Key.Oem1)
+        //            sub++;
+
+        //        for (int i = 0; i < sub; i++)
+        //        {
+        //            TextPointer tp = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+
+        //            if (tp != null)
+        //                tbxCode.CaretPosition = tp;
+        //        }
+        //    }
+
+        //    InputKey = Key.None;
+        //    //else
+        //    //{
+        //    //    TextPointer tp = TextUtils.GetEndOfCurrentLine(tbxCode.CaretPosition);
+
+        //    //    if (tp != null)
+        //    //        tbxCode.CaretPosition = tp;
+
+        //    //    //    sub = -sub;
+
+        //    //    //    for (int i = 0; i < sub; i++)
+        //    //    //        tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
+        //    //}
+        //}
+
+        private void SetCaretPosition()
+        {
             int sub = TextUtils.GetLineText(tbxCode).Length - CaretPosLineFirstLen;
 
             if (sub > 0)
@@ -284,18 +336,6 @@ namespace CCodeEditorLib
             }
 
             InputKey = Key.None;
-            //else
-            //{
-            //    TextPointer tp = TextUtils.GetEndOfCurrentLine(tbxCode.CaretPosition);
-
-            //    if (tp != null)
-            //        tbxCode.CaretPosition = tp;
-
-            //    //    sub = -sub;
-
-            //    //    for (int i = 0; i < sub; i++)
-            //    //        tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Forward);
-            //}
         }
 
         private void OnPaste(object sender, DataObjectPastingEventArgs e)
@@ -575,12 +615,16 @@ namespace CCodeEditorLib
         private void CheckAndFormat()
         {
             Editing = true;
+            tbxCode.BeginInit();
 
             if (TextCheckingEnable)
                 TextChecking();
 
             if (SetLineNumberEnable)
+            {
                 SetLineNumber();
+                UpdateLineHighlight(); // call again because change when call textchecking()
+            }
 
             // this methode must call after TextChecking because find childs indexes
             if (InputCodeType == EditorCodeType.XML && CheckXmlError)
@@ -605,12 +649,19 @@ namespace CCodeEditorLib
 
             TextCheckingEnable = true;
             SetLineNumberEnable = true;
+            tbxCode.EndInit();
             Editing = false;
         }
 
         private void Timer_Tick(object sender, EventArgs e)
         {
             Timer.Stop();
+            CheckAndFormat();
+        }
+
+        private void ScrollTimer_Tick(object sender, EventArgs e)
+        {
+            ScrollTimer.Stop();
             CheckAndFormat();
         }
 
@@ -693,7 +744,6 @@ namespace CCodeEditorLib
 
             //VisibleLineCount = num - StartLineNumber;
 
-
             string lineno = "";
             double fl = 0.0;
 
@@ -710,11 +760,37 @@ namespace CCodeEditorLib
             StartLineNumber = (int)fl + 1;
             LastLineNumber = StartLineNumber + (int)(tbxCode.ActualHeight / MultiLineHeight);
 
-            for (int i = StartLineNumber; i < LastLineNumber; i++)
+            int displaylast = LastLineNumber;
+
+            if (Lines != null)
+            {
+                if (LastLineNumber > Lines.Length)
+                {
+                    if (Lines.Length > 1)
+                        displaylast = Lines.Length - 1;
+                    else
+                        displaylast = Lines.Length;
+                }
+            }
+            else
+                displaylast = 1;
+
+            for (int i = StartLineNumber; i <= displaylast; i++)
                 lineno += i + "\n";
 
-            StartLineNumber--;
-            LastLineNumber--;
+            StartLineNumber -= 5; // pading top
+
+            if (StartLineNumber < 0)
+                StartLineNumber = 0;
+
+            if (Lines != null)
+            {
+                LastLineNumber += 5; // pading bottom
+
+                if (LastLineNumber > Lines.Length)
+                    LastLineNumber = Lines.Length;
+            }
+
             tbkLineNumber.Margin = new Thickness(10.0, ((int)fl - fl) * MultiLineHeight, 0.0, 0.0);
             tbkLineNumber.Text = lineno;
         }
@@ -762,6 +838,19 @@ namespace CCodeEditorLib
                 StartLineNumber = (int)(VerticalScroll.VerticalOffset / MultiLineHeight); // start visible line number
                 VisibleLineCount = (int)(tbxCode.ActualHeight / MultiLineHeight);
                 LastLineNumber = StartLineNumber + VisibleLineCount;
+
+                StartLineNumber -= 5; // pading top
+
+                if (StartLineNumber < 0)
+                    StartLineNumber = 0;
+
+                if (Lines != null)
+                {
+                    LastLineNumber += 5; // pading bottom
+
+                    if (LastLineNumber > Lines.Length)
+                        LastLineNumber = Lines.Length;
+                }
             }
             else
             {
@@ -801,7 +890,8 @@ namespace CCodeEditorLib
                 CodeText = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd).Text;
 
                 if (MultiLineSelector)
-                    InsertToMultipleLine();
+                    if (InsertToMultipleLine())
+                        return;
 
                 if (!MultiLineDec)
                     CheckScrollBarVisibility();
@@ -810,7 +900,10 @@ namespace CCodeEditorLib
                 UndoAction = false;
 
                 //UpdateLines();
-                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                Lines = CodeText.Split(NewLineTypes, StringSplitOptions.None);
+
+                //if (Lines != null && InputKey != Key.Back && string.IsNullOrEmpty(Lines[Lines.Length - 1]))
+                //    Array.Resize(ref Lines, Lines.Length - 1);
 
                 if (!string.IsNullOrEmpty(CodeText))
                     UndoStack.Push(new UndoRedoCode(CodeText, tbxCode.CaretPosition));
@@ -876,9 +969,10 @@ namespace CCodeEditorLib
                 }
                 else
                 {
-                    if (Char.IsLetter(stringBeforeCaret[i]))
+                    if (Char.IsLetter(stringBeforeCaret[i]) || Char.IsDigit(stringBeforeCaret[i]))
                         countToMoveLeft++;
-                    else break; // otherwise we have found the beginning of the word
+                    else
+                        break; // otherwise we have found the beginning of the word
                 }
             }
 
@@ -910,9 +1004,10 @@ namespace CCodeEditorLib
             for (Int32 i = 0; i < stringAfterCaret.Length; ++i)
             {
                 // if the character at the location CaretPosition+RightOffset is a letter, we move more to the right
-                if (Char.IsLetter(stringAfterCaret[i]))
-                    ++countToMoveRight;
-                else break; // otherwise we have found the end of the word
+                if (Char.IsLetter(stringAfterCaret[i]) || Char.IsDigit(stringAfterCaret[i]))
+                    countToMoveRight++;
+                else
+                    break; // otherwise we have found the end of the word
             }
 
             EndWord = EndWord.GetPositionAtOffset(countToMoveRight);        // modify the end pointer by the offset we have calculated
@@ -1130,7 +1225,7 @@ namespace CCodeEditorLib
             Run RunColor = null;
             int ccounter = 0;
             bool collect_color = false;
-            char[] word = new char[1024];
+            char[] word = new char[2048];
             char[] ColorValue = new char[8] { '0', '0', '0', '0', '0', '0', '0', '0' };
 
             tbxCode.Document.Blocks.Clear();
@@ -1163,6 +1258,7 @@ namespace CCodeEditorLib
             if (LastLineNumber > lcount)
                 LastLineNumber = lcount;
 
+            // add first part without text style
             if (StartLineNumber > 0)
             {
                 paragraph = new Paragraph();
@@ -1171,15 +1267,29 @@ namespace CCodeEditorLib
                 if (ll >= Lines.Length)
                     ll = Lines.Length - 1;
 
-                for (int i = 0; i < ll; i++)
-                    paragraph.Inlines.Add(new Run(Lines[i] + Environment.NewLine));
+                //for (int i = 0; i < ll; i++)
+                //    paragraph.Inlines.Add(new Run(Lines[i] + Environment.NewLine));
 
-                paragraph.Inlines.Add(new Run(Lines[ll]));
+                Run run = new Run();
+                StringBuilder sbuil = new StringBuilder();
+
+                for (int i = 0; i < ll; i++)
+                    sbuil.Append(Lines[i] + Environment.NewLine);
+
+                sbuil.Append(Lines[ll]);
+                run.Text = sbuil.ToString();
+                paragraph.Inlines.Add(run);
+
+                //paragraph.Inlines.Add(new Run(Lines[ll]));
                 tbxCode.Document.Blocks.Add(paragraph);
             }
 
             int lln = LastLineNumber - 1;
             paragraph = new Paragraph();
+
+            //
+            // second part add text with colored keywords
+            //
 
             for (int i = StartLineNumber; i < LastLineNumber; i++)
             {
@@ -1253,6 +1363,8 @@ namespace CCodeEditorLib
                                 paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightGreen });
                             else
                                 CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
+
+                            k = 0;
                         }
                     }
                     else
@@ -1374,14 +1486,31 @@ namespace CCodeEditorLib
                         }
                         else
                         {
-                            CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph);
-                            k = 0;
+                            if (CheckKeywordInLine(sign, c, new string(word, 0, k), paragraph))
+                                k = 0;
+                            else
+                            {
+                                word[k] = c;
+                                k++;
+                            }
                         }
                     }
                 }
 
+                if (k > 0)
+                    paragraph.Inlines.Add(new Run(new string(word, 0, k)) { Foreground = Brushes.LightGray }); // k when start loop get zero value
+
                 if (i < lln)
-                    paragraph.Inlines.Add(new Run(Environment.NewLine));
+                {
+                    // if exit a Run use that or not add a new
+                    if (paragraph.Inlines.LastInline != null)
+                        (paragraph.Inlines.LastInline as Run).Text += Environment.NewLine;
+                    else
+                        paragraph.Inlines.Add(new Run(Environment.NewLine) { Foreground = Brushes.LightGray });
+                }
+
+                //if (i < lln)
+                //    paragraph.Inlines.Add(new Run(Environment.NewLine));
             }
 
             tbxCode.Document.Blocks.Add(paragraph);
@@ -1393,17 +1522,25 @@ namespace CCodeEditorLib
             //    tbxCode.Document.Blocks.Add(parag);
             //}
 
+            // add third part to rich text without style
             if (LastLineNumber < lcount)
             {
                 paragraph = new Paragraph();
                 int ll = lcount - 1;
 
+                Run run = new Run();
+                StringBuilder sbuil = new StringBuilder();
+
                 for (int i = LastLineNumber; i < ll; i++)
-                    paragraph.Inlines.Add(new Run(Lines[i] + Environment.NewLine));
+                    sbuil.Append(Lines[i] + Environment.NewLine);
+                //paragraph.Inlines.Add(new Run(Lines[i] + Environment.NewLine));
 
                 if (Lines[ll] != "")
-                    paragraph.Inlines.Add(new Run(Lines[ll]));
+                    sbuil.Append(Lines[ll]);
+                //paragraph.Inlines.Add(new Run(Lines[ll]));
 
+                run.Text = sbuil.ToString();
+                paragraph.Inlines.Add(run);
                 tbxCode.Document.Blocks.Add(paragraph);
             }
 
@@ -1683,12 +1820,15 @@ namespace CCodeEditorLib
             return run;
         }
 
-        private void CheckKeywordInLine(bool sign, char c, string part, Paragraph paragraph)
+        private bool CheckKeywordInLine(bool sign, char c, string part, Paragraph paragraph)
         {
+            bool result = false;
+
             if (!string.IsNullOrEmpty(part))
             {
                 Run run = new Run(part);
-                Keyword key = Keywords.Where(p => p.Key == part).FirstOrDefault();
+                string npart = part.Trim();
+                Keyword key = Keywords.Where(p => p.Key == npart).FirstOrDefault();
 
                 // Find Highlight
                 //if (FindWord != null && part == FindWord)
@@ -1696,6 +1836,7 @@ namespace CCodeEditorLib
 
                 if (key != null)
                 {
+                    result = true;
                     run.Foreground = key.Color;
 
                     if (InputCodeType == EditorCodeType.XML)
@@ -1764,28 +1905,38 @@ namespace CCodeEditorLib
                         key = CurrentKeyword.BaseSuggestions?.Where(p => p.Key == part).FirstOrDefault();
 
                         if (key != null)
+                        {
+                            result = true;
                             run.Foreground = key.Color;
+                        }
                         else
                         {
                             key = CurrentKeyword.Suggestions?.Where(p => p.Key == part).FirstOrDefault();
 
                             if (key != null)
-                                run.Foreground = key.Color;
-                            else
                             {
-                                run.Foreground = Brushes.LightGray;
+                                result = true;
+                                run.Foreground = key.Color;
                             }
+                            else
+                                run.Foreground = Brushes.LightGray;
                         }
                     }
                     else
                         run.Foreground = Brushes.LightGray;
                 }
 
-                paragraph.Inlines.Add(run);
+                if (c != ' ' || result)
+                    paragraph.Inlines.Add(run);
             }
 
-            if (sign)
+            if ((sign && c != ' ') || (c == ' ' && result))
+            {
+                result = true;
                 paragraph.Inlines.Add(new Run(c.ToString()) { Foreground = Brushes.LightGray });
+            }
+
+            return result;
         }
 
         public void SetTagNames(List<string> names)
@@ -1870,7 +2021,8 @@ namespace CCodeEditorLib
                 }
 
                 popSuggestion.IsOpen = false;
-                lstKeyword.Items.Filter = null;
+                //lstKeyword.Items.Filter = null;
+                ResetFilterSuggestions();
             }
             else if (Keyboard.Modifiers == ModifierKeys.Shift)
             {
@@ -1892,6 +2044,7 @@ namespace CCodeEditorLib
                     TextCheckingEnable = false;
                     SetLineNumberEnable = false;
                     popSuggestion.IsOpen = false;
+                    FunctionClosed?.Invoke();
                     //FormatImmediately = true;
                     //StartFormatCode = true;
                 }
@@ -1901,12 +2054,21 @@ namespace CCodeEditorLib
                     TextCheckingEnable = false;
                     SetLineNumberEnable = false;
                     popSuggestion.IsOpen = false;
+                    FunctionClosed?.Invoke();
                     //FormatImmediately = true;
                     StartFormatCode = true;
                 }
-                else if (e.Key == Key.D0 || e.Key == Key.D9)
+                else if (e.Key == Key.D9)
                 {
+                    // (
                     popSuggestion.IsOpen = false;
+                    FunctionOpened?.Invoke(tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward), TextUtils.GetCurrentLine(tbxCode));
+                }
+                else if (e.Key == Key.D0)
+                {
+                    // )
+                    popSuggestion.IsOpen = false;
+                    FunctionClosed?.Invoke();
                 }
                 else
                     CaptureInput(e.Key);
@@ -1923,6 +2085,7 @@ namespace CCodeEditorLib
                         e.Handled = true;
                     }
 
+                    FunctionClosed?.Invoke();
                     ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Down)
@@ -1935,6 +2098,7 @@ namespace CCodeEditorLib
                         e.Handled = true;
                     }
 
+                    FunctionClosed?.Invoke();
                     ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Enter)
@@ -1943,11 +2107,13 @@ namespace CCodeEditorLib
                     TextCheckingEnable = false;
                     //FormatImmediately = true;
                     StartFormatCode = true;
+                    FunctionClosed?.Invoke();
                     ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Oem1)
                 {
                     // Check ; character
+                    FunctionClosed?.Invoke();
                     popSuggestion.IsOpen = false;
                     StartFormatCode = true;
                 }
@@ -1971,20 +2137,31 @@ namespace CCodeEditorLib
                         e.Handled = true;
                     }
 
+                    FunctionClosed?.Invoke();
                     ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.Home)
                 {
                     TextUtils.GoAtTheBeginOfLine(tbxCode);
                     e.Handled = true;
+                    FunctionClosed?.Invoke();
                     ExitMultiLineSelector();
                 }
                 else if (e.Key == Key.End)
                 {
                     if (popSuggestion.IsOpen)
                     {
+                        FunctionClosed?.Invoke();
                         popSuggestion.IsOpen = false;
                         e.Handled = true;
+                    }
+                }
+                else if (e.Key == Key.Space)
+                {
+                    if (popSuggestion.IsOpen)
+                    {
+                        popSuggestion.IsOpen = false;
+                        ResetFilterSuggestions();
                     }
                 }
                 else
@@ -2083,7 +2260,7 @@ namespace CCodeEditorLib
                 //bool first = false;
                 //Stack<string> spart = new Stack<string>();
                 List<string> newpart = new List<string>();
-                List<string> part = curline.Split(CodeDelimiters).ToList();
+                List<string> part = curline.Split(JoinDelimiters).ToList();
 
                 //for (int i = part.Count - 1; i >= 0; i--)
                 //{
@@ -2106,7 +2283,9 @@ namespace CCodeEditorLib
 
                 for (int i = 0; i < part.Count; i++)
                 {
-                    if (!string.IsNullOrEmpty(part[i]))
+                    if (DifferentDelimiters.Any(p => p.ToString() == part[i]))
+                        newpart.Clear();
+                    else if (!string.IsNullOrEmpty(part[i]))
                         newpart.Add(part[i]);
                 }
 
@@ -2125,7 +2304,8 @@ namespace CCodeEditorLib
                             // update new keyword list
                             lstKeyword.Items.Filter = null;
                             lstKeyword.ItemsSource = null;
-                            lstKeyword.ItemsSource = SubSuggestions;
+                            CurrentKeyList = SubSuggestions;
+                            lstKeyword.ItemsSource = CurrentKeyList;
                         }
                         else
                             ResetFilterSuggestions();
@@ -2133,20 +2313,75 @@ namespace CCodeEditorLib
                     else
                         ResetFilterSuggestions();
 
-                    if (inputchar != null)
+                    // after '(' must check for if ()
+                    part = newpart[newpart.Count - 1].Split(DifferentDelimiters).ToList();
+
+                    // without (
+                    if (part.Count == 1)
                     {
-                        if (!CodeDelimiters.Any(p => p == inputchar[0]))
-                            FilterWord = newpart[newpart.Count - 1].Trim().ToLower();
+                        if (inputchar != null)
+                        {
+                            if (!CodeDelimiters.Any(p => p == inputchar[0]))
+                                FilterWord = part[0].Trim();
+                            else
+                                FilterWord = null;
+                        }
                         else
-                            FilterWord = null;
+                            FilterWord = part[0].Trim();
+                    }
+                    else if (part.Count > 1)
+                    {
+                        ResetFilterSuggestions();
+
+                        if (inputchar != null)
+                        {
+                            if (!CodeDelimiters.Any(p => p == inputchar[0]))
+                                FilterWord = part[part.Count - 1].Trim();
+                            else
+                                FilterWord = null;
+                        }
+                        else
+                            FilterWord = part[part.Count - 1].Trim();
                     }
                     else
-                        FilterWord = newpart[newpart.Count - 1].Trim().ToLower();
+                        ResetFilterSuggestions();
                 }
                 else
                 {
-                    ResetFilterSuggestions();
-                    FilterWord = curline.Trim().ToLower();
+                    part = curline.Split(DifferentDelimiters).ToList();
+
+                    // without (
+                    if (part.Count == 1)
+                    {
+                        if (inputchar != null)
+                        {
+                            if (!CodeDelimiters.Any(p => p == inputchar[0]))
+                                FilterWord = part[0].Trim();
+                            else
+                                FilterWord = null;
+                        }
+                        else
+                            FilterWord = part[0].Trim();
+                    }
+                    else if (part.Count > 1)
+                    {
+                        ResetFilterSuggestions();
+
+                        if (inputchar != null)
+                        {
+                            if (!CodeDelimiters.Any(p => p == inputchar[0]))
+                                FilterWord = part[part.Count - 1].Trim();
+                            else
+                                FilterWord = null;
+                        }
+                        else
+                            FilterWord = part[part.Count - 1].Trim();
+                    }
+                    else
+                    {
+                        ResetFilterSuggestions();
+                        FilterWord = curline.Trim();
+                    }
                 }
 
                 //FilterWord = tbxCode.CaretPosition.GetTextInRun(LogicalDirection.Backward).Trim().ToLower() + inputchar;
@@ -2164,27 +2399,32 @@ namespace CCodeEditorLib
                 //else
                 if (!string.IsNullOrEmpty(FilterWord) && lstKeyword.Items != null && lstKeyword.Items.Count > 0)
                 {
-                    lstKeyword.Items.Filter = r =>
-                    {
-                        if (!string.IsNullOrEmpty((r as Keyword).Key))
-                            return (r as Keyword).Key.ToLower().StartsWith(FilterWord);
+                    //lstKeyword.Items.Filter = r =>
+                    //{
+                    //    if (!string.IsNullOrEmpty((r as Keyword).Key))
+                    //        return (r as Keyword).Key.ToLower().StartsWith(FilterWord);
 
-                        return false;
-                    };
+                    //    return false;
+                    //};
 
-                    if (lstKeyword.Items.Count == 0)
-                    {
-                        lstKeyword.Items.Filter = r =>
-                        {
-                            if (!string.IsNullOrEmpty((r as Keyword).Key))
-                                return (r as Keyword).Key.ToLower().Contains(FilterWord);
+                    //if (lstKeyword.Items.Count == 0)
+                    //{
+                    //    lstKeyword.Items.Filter = r =>
+                    //    {
+                    //        if (!string.IsNullOrEmpty((r as Keyword).Key))
+                    //            return (r as Keyword).Key.ToLower().Contains(FilterWord);
 
-                            return false;
-                        };
-                    }
+                    //        return false;
+                    //    };
+                    //}
+                    lstKeyword.ItemsSource = null;
+                    lstKeyword.ItemsSource = TextUtils.FilterWithPriority(CurrentKeyList, FilterWord);
                 }
                 else
-                    lstKeyword.Items.Filter = null;
+                {
+                    //lstKeyword.Items.Filter = null;
+                    ResetFilterSuggestions();
+                }
 
                 if (lstKeyword.Items.Count > 0)
                 {
@@ -2232,7 +2472,8 @@ namespace CCodeEditorLib
         {
             lstKeyword.Items.Filter = null;
             lstKeyword.ItemsSource = null;
-            lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
+            CurrentKeyList = Keywords.Where(p => p.Visible).ToList();
+            lstKeyword.ItemsSource = CurrentKeyList;
         }
 
         private bool SelectSuggestion()
@@ -2241,7 +2482,7 @@ namespace CCodeEditorLib
             {
                 Keyword keyword = lstKeyword.SelectedItem as Keyword;
 
-                if (keyword != null)
+                if (keyword != null && keyword.Key != FilterWord)
                 {
                     FindBeginOfWord();
                     FindEndOfWord();
@@ -2265,6 +2506,9 @@ namespace CCodeEditorLib
 
                     for (int i = 0; i < keyword.ReturnBackward; i++)
                         tbxCode.CaretPosition = tbxCode.CaretPosition.GetNextInsertionPosition(LogicalDirection.Backward);
+
+                    if (keyword.Type == KeywordType.Method)
+                        FunctionOpened?.Invoke(tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward), TextUtils.GetCurrentLine(tbxCode));
                 }
 
                 popSuggestion.IsOpen = false;
@@ -2297,7 +2541,7 @@ namespace CCodeEditorLib
                     }
 
                     CodeText = urc.Code;
-                    Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                    Lines = CodeText.Split(NewLineTypes, StringSplitOptions.None);
 
                     TextChecking();
                     SetLineNumber();
@@ -2330,7 +2574,7 @@ namespace CCodeEditorLib
                 UndoStack.Push(urc);
                 CodeText = urc.Code;
 
-                Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                Lines = CodeText.Split(NewLineTypes, StringSplitOptions.None);
 
                 TextChecking();
                 SetLineNumber();
@@ -2376,14 +2620,16 @@ namespace CCodeEditorLib
                             AttribList.AddRange(key.BaseSuggestions);
 
                         lstKeyword.ItemsSource = null;
-                        lstKeyword.ItemsSource = AttribList;
+                        CurrentKeyList = AttribList;
+                        lstKeyword.ItemsSource = CurrentKeyList;
                     }
                 }
             }
             else
             {
                 CurrentTag = null;
-                lstKeyword.ItemsSource = Keywords.Where(p => p.Visible);
+                CurrentKeyList = Keywords.Where(p => p.Visible).ToList();
+                lstKeyword.ItemsSource = CurrentKeyList;
             }
         }
 
@@ -2450,7 +2696,7 @@ namespace CCodeEditorLib
 
             TextRange range = new TextRange(tbxCode.Document.ContentStart, tbxCode.Document.ContentEnd);
             CodeText = Source.XMLParser.FormatXml(range.Text);
-            Lines = CodeText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Lines = CodeText.Split(NewLineTypes, StringSplitOptions.None);
             CheckXMLKeyword();
             SetLineNumber();
 
@@ -2710,11 +2956,12 @@ namespace CCodeEditorLib
 
             if (InitOnce)
             {
-                if (CaretPosTimer != null)
-                {
-                    CaretPosTimer.Stop();
-                    CaretPosTimer.Start();
-                }
+                //if (CaretPosTimer != null)
+                //{
+                //    CaretPosTimer.Stop();
+                //    CaretPosTimer.Start();
+                //}
+                SetCaretPosition();
             }
 
             Editing = false;
@@ -2809,7 +3056,7 @@ namespace CCodeEditorLib
 
         private void TbxCode_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if (IsLoaded && !Editing)
+            if (IsLoaded && !Editing && e.VerticalChange != 0)
             {
                 //Editing = true;
                 SetLineNumber();
@@ -2820,10 +3067,11 @@ namespace CCodeEditorLib
                 if (Lines != null)
                 {
                     IsScrolling = true;
-                    //Timer.Stop();
-                    Timer.Start();
+                    //ScrollTimer.Stop();
+                    ScrollTimer.Start();
                     //CheckAndFormat();
                 }
+
                 //Editing = false;
             }
         }
@@ -3246,7 +3494,7 @@ namespace CCodeEditorLib
             MultiLineCount = (int)Math.Round(Math.Abs(suby) / MultiLineHeight);
         }
 
-        private void InsertToMultipleLine()
+        private bool InsertToMultipleLine()
         {
             Editing = true;
 
@@ -3254,13 +3502,6 @@ namespace CCodeEditorLib
 
             if (StartPoint != null)
             {
-                // Check caret before the start positon then must exit
-                if (tbxCode.CaretPosition.CompareTo(StartPoint) < 0)
-                {
-                    ExitMultiLineSelector();
-                    return;
-                }
-
                 // Init
                 if (!MultiLineStarting)
                 {
@@ -3270,7 +3511,7 @@ namespace CCodeEditorLib
                     if (MultiLineCount <= 0)
                     {
                         ExitMultiLineSelector();
-                        return;
+                        return false;
                     }
 
                     MultiLineStarting = true; // lock init again
@@ -3280,13 +3521,68 @@ namespace CCodeEditorLib
                         MultiLineFirstState.Add(null);
                 }
 
-                string insertion = new TextRange(StartPoint, tbxCode.CaretPosition)?.Text;
-                int pos = new TextRange(tbxCode.Document.ContentStart, StartPoint).Text.Length;
+                Rect rect = tbxCode.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
+
+                if (InputKey == Key.Back)
+                {
+                    for (int k = 0; k < MultiLineCount; k++)
+                        TextUtils.RemoveCharAtPoint(tbxCode, new Point(rect.X + 1, rect.Y + (k + 1) * MultiLineHeight));
+
+                    Editing = false;
+                    return true;
+                }
+                else if (InputKey == Key.Delete)
+                {
+                    for (int k = 0; k < MultiLineCount; k++)
+                        TextUtils.RemoveCharAtPoint(tbxCode, new Point(rect.X + 3.0, rect.Y + (k + 1) * MultiLineHeight));
+
+                    Editing = false;
+                    return true;
+                }
+                //else
+                //{
+                //    string istring = new TextRange(StartPoint, tbxCode.CaretPosition)?.Text;
+
+                //    for (int k = 0; k < MultiLineCount; k++)
+                //        TextUtils.InsertStringAtPoint(tbxCode, new Point(rect.X, rect.Y + (k + 1) * MultiLineHeight), istring);
+                //}
+
+                //Editing = false;
+                //return true;
+
+                // Check caret before the start positon then must exit
+                if (tbxCode.CaretPosition.CompareTo(StartPoint) < 0)
+                {
+                    ExitMultiLineSelector();
+                    return false;
+                }
 
                 int nex = 0;
+                int pos = new TextRange(tbxCode.Document.ContentStart, StartPoint).Text.Length;
                 int cur = CodeText.Take(pos).Count(c => c == '\n'); // find line
-                List<string> lines = CodeText.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).ToList();
+                List<string> lines = CodeText.Split(NewLineTypes, StringSplitOptions.None).ToList();
                 lines.RemoveAt(lines.Count - 1);
+
+                // Init
+                //if (!MultiLineStarting)
+                //{
+                //    if (MultiLineDown)
+                //        MultiLineCount--;
+
+                //    if (MultiLineCount <= 0)
+                //    {
+                //        ExitMultiLineSelector();
+                //        return false;
+                //    }
+
+                //    MultiLineStarting = true; // lock init again
+                //    MultiLineFirstState.Clear();
+
+                //    for (int i = 0; i < MultiLineCount; i++)
+                //        MultiLineFirstState.Add(null);
+                //}
+
+                string insertion = new TextRange(StartPoint, tbxCode.CaretPosition)?.Text;
 
                 MultiLineDec = MultiLinePreLen > insertion.Length;
                 MultiLinePreLen = insertion.Length;
@@ -3350,6 +3646,8 @@ namespace CCodeEditorLib
             }
 
             Editing = false;
+
+            return false;
         }
 
         public void UpdateFirstLine(string str)
