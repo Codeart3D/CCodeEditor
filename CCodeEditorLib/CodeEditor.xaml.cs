@@ -61,12 +61,16 @@ namespace CCodeEditorLib
         private Point MultiLineStart = new Point();
         private TextPointer StartWord;
         private TextPointer EndWord;
+        private List<int> ErrorList = new List<int>();
+        private List<int> WarningList = new List<int>();
         private List<string> TagNames;
         private List<string> MultiLineFirstState = new List<string>();
         private List<Keyword> AttribList;
         private List<LType> Types = new List<LType>();
         private List<Keyword> Keywords = new List<Keyword>();
         private List<Keyword> CurrentKeyList = null;
+        private List<Border> ErrorBorder = new List<Border>();
+        private List<Border> WarningBorder = new List<Border>();
         private ScrollViewer VerticalScroll;
         private string CurrentTag = null;
         private string LinesBefore;
@@ -83,6 +87,9 @@ namespace CCodeEditorLib
         public static char[] DifferentDelimiters = new char[] { '(', ')', '=', '+', '-', '*', '/', '>', '<', '&', '|', '{', '}', '"', ',', ';', '#' };
         private char[] XmlDelimiters = new char[] { ' ', '\0', '=' };
         private string[] NewLineTypes = new[] { "\r\n", "\n" };
+
+        private SolidColorBrush ErrorBorderColor = new SolidColorBrush(Color.FromRgb(0x33, 0, 0));
+        private SolidColorBrush WarningBorderColor = new SolidColorBrush(Color.FromRgb(0x33, 0x22, 0));
 
         private Stack<UndoRedoCode> UndoStack = new Stack<UndoRedoCode>();
         private Stack<UndoRedoCode> RedoStack = new Stack<UndoRedoCode>();
@@ -744,6 +751,7 @@ namespace CCodeEditorLib
 
             //VisibleLineCount = num - StartLineNumber;
 
+            int totalline = 1;
             string lineno = "";
             double fl = 0.0;
 
@@ -764,12 +772,19 @@ namespace CCodeEditorLib
 
             if (Lines != null)
             {
-                if (LastLineNumber > Lines.Length)
+                if (Lines.Length > 1)
                 {
-                    if (Lines.Length > 1)
-                        displaylast = Lines.Length - 1;
-                    else
-                        displaylast = Lines.Length;
+                    totalline = Lines.Length - 1;
+
+                    if (LastLineNumber > Lines.Length)
+                        displaylast = totalline;
+                }
+                else
+                {
+                    totalline = 1;
+
+                    if (LastLineNumber > Lines.Length)
+                        displaylast = 1;
                 }
             }
             else
@@ -793,6 +808,7 @@ namespace CCodeEditorLib
 
             tbkLineNumber.Margin = new Thickness(10.0, ((int)fl - fl) * MultiLineHeight, 0.0, 0.0);
             tbkLineNumber.Text = lineno;
+            tbkLineCount.Text = "Lines : " + totalline;
         }
 
         private string GetBeforeVisibleText()
@@ -1988,6 +2004,7 @@ namespace CCodeEditorLib
             {
                 if (e.Key == Key.Space)
                 {
+                    FindSuggestion(String.Empty, false);
                     DisplaySuggestionPopup();
                     return;
                 }
@@ -2106,9 +2123,13 @@ namespace CCodeEditorLib
                     e.Handled = SelectSuggestion();
                     TextCheckingEnable = false;
                     //FormatImmediately = true;
-                    StartFormatCode = true;
-                    FunctionClosed?.Invoke();
-                    ExitMultiLineSelector();
+
+                    if (!e.Handled)
+                    {
+                        StartFormatCode = true;
+                        FunctionClosed?.Invoke();
+                        ExitMultiLineSelector();
+                    }
                 }
                 else if (e.Key == Key.Oem1)
                 {
@@ -2248,7 +2269,8 @@ namespace CCodeEditorLib
         {
             try
             {
-                string curline = TextUtils.GetCurrentLine(tbxCode) + inputchar;
+                //string curline = TextUtils.GetCurrentLine(tbxCode) + inputchar;
+                string curline = TextUtils.GetTextFromCaretToStartOfLine(tbxCode.CaretPosition) + inputchar;
 
                 if (string.IsNullOrEmpty(curline))
                     return;
@@ -2292,12 +2314,22 @@ namespace CCodeEditorLib
                 // find suggestion after .
                 if (newpart.Count > 0)
                 {
+                    List<string> lpart = new List<string>();
+
+                    foreach (var item in newpart)
+                    {
+                        lpart.AddRange(item.Split(DifferentDelimiters).ToList());
+                    }
+
+                    if (lpart.Count == 0)
+                        return;
+
                     if (UpdateSubSuggestionList != null)
                     {
                         //CurrentSuggestion = FilterFromFunction(sections[sections.Length - 1], sections[sections.Length - 2]);
 
                         // get list of new keywords
-                        UpdateSubSuggestionList.Invoke(newpart);// CurrentSuggestion, null);
+                        UpdateSubSuggestionList.Invoke(lpart);// CurrentSuggestion, null);
 
                         if (SubSuggestions != null && SubSuggestions.Count > 0)
                         {
@@ -2331,7 +2363,7 @@ namespace CCodeEditorLib
                     }
                     else if (part.Count > 1)
                     {
-                        ResetFilterSuggestions();
+                        //ResetFilterSuggestions();
 
                         if (inputchar != null)
                         {
@@ -2397,7 +2429,7 @@ namespace CCodeEditorLib
 
                 //if (!IsXML)
                 //else
-                if (!string.IsNullOrEmpty(FilterWord) && lstKeyword.Items != null && lstKeyword.Items.Count > 0)
+                if (lstKeyword.Items != null && lstKeyword.Items.Count > 0)
                 {
                     //lstKeyword.Items.Filter = r =>
                     //{
@@ -2417,8 +2449,13 @@ namespace CCodeEditorLib
                     //        return false;
                     //    };
                     //}
-                    lstKeyword.ItemsSource = null;
-                    lstKeyword.ItemsSource = TextUtils.FilterWithPriority(CurrentKeyList, FilterWord);
+
+                    // check with filter or without
+                    if (!string.IsNullOrEmpty(FilterWord))
+                    {
+                        lstKeyword.ItemsSource = null;
+                        lstKeyword.ItemsSource = TextUtils.FilterWithPriority(CurrentKeyList, FilterWord);
+                    }
                 }
                 else
                 {
@@ -3073,6 +3110,7 @@ namespace CCodeEditorLib
                 }
 
                 //Editing = false;
+                griLineEW.Margin = new Thickness(0, -e.VerticalOffset, 0, 0);
             }
         }
 
@@ -3663,6 +3701,76 @@ namespace CCodeEditorLib
         private void BtnSingleWord_Click(object sender, RoutedEventArgs e)
         {
             FindText();
+        }
+
+        public void ClearErrorList()
+        {
+            ErrorList.Clear();
+            tbkErrorCount.Text = "Errors : 0";
+
+            foreach (var item in ErrorBorder)
+                griLineEW.Children.Remove(item);
+        }
+
+        public void ClearWarningList()
+        {
+            WarningList.Clear();
+            tbkWarningCount.Text = "Warnings : 0";
+
+            foreach (var item in WarningBorder)
+                griLineEW.Children.Remove(item);
+        }
+
+        public void SetErrorList(List<int> errors)
+        {
+            if (errors != null)
+            {
+                // clear childs
+                foreach (var item in ErrorBorder)
+                    griLineEW.Children.Remove(item);
+
+                ErrorList = errors;
+                ErrorBorder.Clear();
+                tbkErrorCount.Text = "Errors : " + errors.Count;
+
+                foreach (var item in ErrorList)
+                {
+                    Border border = new Border();
+                    border.Height = 18;
+                    border.Background = ErrorBorderColor;
+                    border.VerticalAlignment = VerticalAlignment.Top;
+                    Grid.SetColumnSpan(border, 2);
+                    border.Margin = new Thickness(0, (item - 1) * MultiLineHeight, 0, 0);
+                    ErrorBorder.Add(border);
+                    griLineEW.Children.Add(border);
+                }
+            }
+        }
+
+        public void SetWarningList(List<int> warning)
+        {
+            if (warning != null)
+            {
+                // clear childs
+                foreach (var item in WarningBorder)
+                    griLineEW.Children.Remove(item);
+
+                WarningList = warning;
+                WarningBorder.Clear();
+                tbkWarningCount.Text = "Warnings : " + warning.Count;
+
+                foreach (var item in WarningList)
+                {
+                    Border border = new Border();
+                    border.Height = 18;
+                    border.Background = WarningBorderColor;
+                    border.VerticalAlignment = VerticalAlignment.Top;
+                    Grid.SetColumnSpan(border, 2);
+                    border.Margin = new Thickness(0, (item - 1) * MultiLineHeight, 0, 0);
+                    WarningBorder.Add(border);
+                    griLineEW.Children.Add(border);
+                }
+            }
         }
     }
 }

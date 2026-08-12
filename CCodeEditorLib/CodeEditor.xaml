@@ -31,13 +31,19 @@
 
             <Border Grid.ColumnSpan="2" Background="#161616" Height="18" Name="borHighlight" VerticalAlignment="Top"/>
 
+            <ScrollViewer Grid.ColumnSpan="2" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Hidden">
+                <Grid Name="griLineEW">
+                    <!--Display errors and warnings here-->
+                </Grid>
+            </ScrollViewer>
+
             <Grid Name="griLine">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
                     <ColumnDefinition Width="10"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Margin="10,0,0,0" Width="auto" Height="auto" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" TextAlignment="Left" Foreground="#8C8C8C" FontSize="13" FontFamily="{StaticResource Consolas}" Text="01&#x0a;02&#x0a;03&#x0a;" Name="tbkLineNumber"/>
+                <TextBlock Margin="10,0,0,0" Width="auto" Height="auto" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" TextAlignment="Left" Foreground="#8C8C8C" FontSize="13" FontFamily="{StaticResource Consolas}" Text="1" Name="tbkLineNumber"/>
             </Grid>
 
             <RichTextBox Grid.Column="1" Background="Transparent" Foreground="LightGray" FontSize="13" BorderThickness="0" AcceptsTab="True"
@@ -129,17 +135,25 @@
         <Border Grid.Row="2" Background="#222" BorderThickness="0,1,0,0" BorderBrush="#333">
             <Grid MinHeight="30">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="80"/>
                     <ColumnDefinition/>
                     <ColumnDefinition Width="auto"/>
                     <ColumnDefinition Width="30"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBox Foreground="IndianRed" Margin="2" Width="auto" Height="auto" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Name="tbkError" IsReadOnly="True" 
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="#999" Text="Lines : 1" Name="tbkLineCount"/>
+                <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="#999" Text="Errors : 0" Name="tbkErrorCount"/>
+                <TextBlock Grid.Column="3" VerticalAlignment="Center" Foreground="#999" Text="Warnings : 0" Name="tbkWarningCount"/>
+                
+                <TextBox Grid.Column="4" Foreground="IndianRed" Margin="2" Width="auto" Height="auto" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Name="tbkError" IsReadOnly="True" 
                          BorderThickness="0" BorderBrush="Transparent" Background="Transparent" 
                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" TextWrapping="WrapWithOverflow"/>
 
-                <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="#555" Margin="5,0" FontSize="12" FontWeight="Bold" Text="CodeArt Code Editor Version 3.5"/>
-                <Button Grid.Column="2" Width="20" Height="20" Content="_" VerticalAlignment="Top" Margin="5" Background="Transparent" Name="btnClearError" Click="BtnClearError_Click"/>
+                <TextBlock Grid.Column="5" VerticalAlignment="Center" Foreground="#555" Margin="5,0" FontSize="12" FontWeight="Bold" Text="CodeArt Code Editor Version 3.55"/>
+                <Button Grid.Column="6" Width="20" Height="20" Content="_" VerticalAlignment="Top" Margin="5" Background="Transparent" Name="btnClearError" Click="BtnClearError_Click"/>
             </Grid>
         </Border>
 

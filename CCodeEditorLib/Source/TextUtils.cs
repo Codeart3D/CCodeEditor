@@ -202,6 +202,11 @@ namespace CCodeEditorLib.Source
                 rtb.CaretPosition = tp;
         }
 
+        public static string GetTextFromCaretToStartOfLine(TextPointer caretPos)
+        {
+            return new TextRange(caretPos.GetLineStartPosition(0), caretPos).Text;
+        }
+
         public static void SelectFromCaretToStartOfLine(RichTextBox rtb)
         {
             TextPointer caretPos = rtb.CaretPosition;
